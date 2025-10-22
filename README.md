@@ -1,27 +1,25 @@
-This repository contains training, generation and utility scripts for Stable Diffusion.
+이 저장소에는 Stable Diffusion용 훈련, 생성 및 유틸리티 스크립트가 포함되어 있습니다.
 
-[__Change History__](#change-history) is moved to the bottom of the page. 
-更新履歴は[ページ末尾](#change-history)に移しました。
+변경 내역은 페이지 하단으로 이동했습니다.
 
-Latest update: 2025-03-21 (Version 0.9.1)
+최신 업데이트: 2025-03-21 (버전 0.9.1)
 
-[日本語版READMEはこちら](./README-ja.md)
+일본어판 README는 여기
 
-The development version is in the `dev` branch. Please check the dev branch for the latest changes.
+개발 버전은 dev 브랜치에 있습니다. 최신 변경 사항은 dev 브랜치를 확인해 주세요.
 
-FLUX.1 and SD3/SD3.5 support is done in the `sd3` branch. If you want to train them, please use the sd3 branch.
+FLUX.1 및 SD3/SD3.5 지원은 sd3 브랜치에서 이루어집니다. 해당 모델을 훈련하려면 sd3 브랜치를 사용해 주세요.
 
+더 쉬운 사용법(GUI 및 PowerShell 스크립트 등)을 원하시면 bmaltais가 관리하는 저장소를 방문해 주세요. @bmaltais 님께 감사드립니다!
 
-For easier use (GUI and PowerShell scripts etc...), please visit [the repository maintained by bmaltais](https://github.com/bmaltais/kohya_ss). Thanks to @bmaltais!
+이 저장소에는 다음 스크립트가 포함되어 있습니다:
 
-This repository contains the scripts for:
-
-* DreamBooth training, including U-Net and Text Encoder
-* Fine-tuning (native training), including U-Net and Text Encoder
-* LoRA training
-* Textual Inversion training
-* Image generation
-* Model conversion (supports 1.x and 2.x, Stable Diffision ckpt/safetensors and Diffusers)
+# DreamBooth 훈련 (U-Net 및 텍스트 인코더 포함)
+# 미세 조정 (네이티브 훈련) (U-Net 및 텍스트 인코더 포함)
+# LoRA 훈련
+# 텍스트 역전 훈련
+# 이미지 생성
+# 모델 변환 (1.x 및 2.x, Stable Diffusion ckpt/safetensors 및 Diffusers 지원)
 
 ### Sponsors
 
