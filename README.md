@@ -14,12 +14,12 @@ FLUX.1 및 SD3/SD3.5 지원은 sd3 브랜치에서 이루어집니다. 해당 �
 
 이 저장소에는 다음 스크립트가 포함되어 있습니다:
 
-# DreamBooth 훈련 (U-Net 및 텍스트 인코더 포함)
-# 미세 조정 (네이티브 훈련) (U-Net 및 텍스트 인코더 포함)
-# LoRA 훈련
-# 텍스트 역전 훈련
-# 이미지 생성
-# 모델 변환 (1.x 및 2.x, Stable Diffusion ckpt/safetensors 및 Diffusers 지원)
+- DreamBooth 훈련 (U-Net 및 텍스트 인코더 포함)
+- 미세 조정 (네이티브 훈련) (U-Net 및 텍스트 인코더 포함)
+- LoRA 훈련
+- 텍스트 역전 훈련
+- 이미지 생성
+- 모델 변환 (1.x 및 2.x, Stable Diffusion ckpt/safetensors 및 Diffusers 지원)
 
 ### Sponsors
 
