@@ -1,3 +1,15 @@
+NVIDIA Studio Driver(SDR) : Windows 10/11 → 531.79 / 536.67 등 :
+아래서 기종 선택하고 Studio Driver 선택하고 검색 버튼
+https://www.nvidia.com/ko-kr/geforce/drivers/
+제일 낮은 버전이 아마 괜찮을 듯 함.
+
+CUDA 12.3 : https://developer.nvidia.com/cuda-12-3-0-download-archive
+cuDNN v9.5.0 : https://developer.nvidia.com/cudnn-9-5-0-download-archive
+
+cuDNN (예: C:\Program Files\NVIDIA\CUDNN\v9.5 )폴더 안에는 bin, include, lib 폴더가 있습니다.
+각 폴더의 내용을 CUDA Toolkit이 설치된 경로 내의 해당 폴더에 복사합니다.
+예시: cuDNN/bin을 C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.2\bin으로 복사합니다. 
+
 이 저장소에는 Stable Diffusion용 훈련, 생성 및 유틸리티 스크립트가 포함되어 있습니다.
 
 변경 내역은 페이지 하단으로 이동했습니다.
