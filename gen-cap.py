@@ -5,18 +5,18 @@ BLIP + WD14 하이브리드 캡션 생성기 (수정 버전)
 필요 환경: kohya_ss (sd-scripts)
 """
 
+import argparse
 import os
 import sys
 import traceback
 from pathlib import Path
-from tqdm import tqdm
-import numpy as np
-from PIL import Image
-import torch
-import logging
-import argparse
+
 import nltk
+import numpy as np
+import torch
+from PIL import Image
 from nltk.stem import WordNetLemmatizer
+from tqdm import tqdm
 
 # sd-scripts 기준 상대 경로
 nltk_models_dir = os.path.join(os.path.dirname(__file__), "..", "models", "nltk_data")
@@ -35,7 +35,7 @@ except Exception as e:
 
 # Kohya_ss 모듈 임포트
 try:
-    from finetune.wd14_tagger_gen8id import preprocess_image, run_batch
+    from wd14_tagger_gen8id import preprocess_image, run_batch
 except ImportError:
     print("❌ Kohya_ss 환경에서 실행해주세요!")
     print("경로: sd-scripts/ 폴더 안에서 실행")
