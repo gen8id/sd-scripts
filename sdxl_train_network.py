@@ -1,6 +1,6 @@
 import argparse
 from typing import List, Optional, Union
-
+from pathlib import Path
 import torch
 from accelerate import Accelerator
 from library.device_utils import init_ipex, clean_memory_on_device
@@ -224,6 +224,13 @@ if __name__ == "__main__":
     args = parser.parse_args()
     train_util.verify_command_line_training_args(args)
     args = train_util.read_config_from_file(args, parser)
+
+    script_dir = Path(__file__).parent
+    pretrained_path = (script_dir / args.pretrained_model_name_or_path).resolve()
+    resume = (script_dir / args.resume).resolve()
+    # argparse에 전달
+    args.pretrained_model_name_or_path = str(pretrained_path)
+    args.resume = str(resume)
 
     trainer = SdxlNetworkTrainer()
     trainer.train(args)

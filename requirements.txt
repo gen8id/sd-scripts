@@ -53,4 +53,6 @@ rich==13.7.0
 sentencepiece==0.2.0
 # for kohya_ss library
 toml==0.10.2
+xformers==0.0.26.post1 --index-url https://download.pytorch.org/whl/cu121
+pip install triton==2.3.0
 -e .

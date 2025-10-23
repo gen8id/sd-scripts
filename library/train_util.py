@@ -1920,6 +1920,8 @@ class DreamBoothDataset(BaseDataset):
 
         def read_caption(img_path, caption_extension, enable_wildcard):
             # captionの候補ファイル名を作る
+            # https://github.com/bmaltais/kohya_ss/issues/1370
+            caption_extension = ".txt"
             base_name = os.path.splitext(img_path)[0]
             base_name_face_det = base_name
             tokens = base_name.split("_")

@@ -1,5 +1,5 @@
 # PyTorch + torchvision CUDA 12.1
-pip install torch==2.3.1+cu121 torchvision==0.18.1+cu121 torchaudio -f https://download.pytorch.org/whl/cu121/torch_stable.html
+pip install torch==2.3.0+cu121 torchvision==0.18.0+cu121 torchaudio -f https://download.pytorch.org/whl/cu121/torch_stable.html
 
 accelerate==0.33.0
 transformers==4.44.0
@@ -57,4 +57,5 @@ rich==13.7.0
 # for T5XXL tokenizer (SD3/FLUX)
 sentencepiece==0.2.0
 # for kohya_ss library
+xformers==0.0.26.post1 --index-url https://download.pytorch.org/whl/cu121
 -e .

@@ -10,6 +10,22 @@ cuDNN (예: C:\Program Files\NVIDIA\CUDNN\v9.5 )폴더 안에는 bin, include, l
 각 폴더의 내용을 CUDA Toolkit이 설치된 경로 내의 해당 폴더에 복사합니다.
 예시: cuDNN/bin을 C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.2\bin으로 복사합니다. 
 
+
+4. SDXL 모델 다운로드
+SDXL 기본 해상도는 1024x1024 X이며, 다음 모델이 필요합니다:
+필수 모델:
+SDXL Base 모델 (.safetensors 또는 .ckpt)
+Hugging Face 또는
+CivitAI에서 다운로드
+
+권장: VAE 모델 (선택사항이지만 권장)
+https://huggingface.co/madebyollin/sdxl-vae-fp16-fix
+SDXL fp16 VAE GitHub: madebyollin/sdxl-vae-fp16-fix
+모델을 원하는 폴더에 저장하세요 (예: C:/models/sdxl/)
+
+
+
+
 이 저장소에는 Stable Diffusion용 훈련, 생성 및 유틸리티 스크립트가 포함되어 있습니다.
 
 변경 내역은 페이지 하단으로 이동했습니다.
