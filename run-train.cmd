@@ -22,7 +22,7 @@ accelerate launch --num_cpu_threads_per_process 1 --mixed_precision bf16 ^
   --cache_latents_to_disk ^
   --gradient_checkpointing ^
   --xformers ^
-  --seed=42 ^
+  --seed=47 ^
   --bucket_no_upscale ^
   --min_bucket_reso=512 ^
   --max_bucket_reso=2048 ^

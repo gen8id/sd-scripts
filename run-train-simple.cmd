@@ -1,0 +1,1 @@
+accelerate launch --num_cpu_threads_per_process 8 train_network.py --config_file=config_5080.json
