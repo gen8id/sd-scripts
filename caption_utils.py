@@ -4,9 +4,10 @@ BLIP + WD14 하이브리드 캡션 생성기 (수정 버전)
 
 필요 환경: kohya_ss (sd-scripts)
 """
-import argparse
 import os
 import sys
+# 현재 파일의 상위 디렉토리 경로 추가
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 import traceback
 from pathlib import Path
 import nltk
@@ -17,12 +18,11 @@ from nltk.stem import WordNetLemmatizer
 import onnx
 import re
 import onnxruntime as ort
-from wd14_tagger_gen8id import preprocess_image, run_batch
+import logging
 from transformers import BlipProcessor, BlipForConditionalGeneration
-import requests
-import gzip
-import json
+from library.utils import resize_image
 
+logger = logging.getLogger(__name__)
 
 # ==============================
 # ⚙️ 설정 (수정 가능)
@@ -34,7 +34,10 @@ class Config:
         "../dataset/train/mainchar",
         "../dataset/train/background",
     ]
-    WATCH_DIR = "../dataset/captioning/mainchar"
+    WATCH_DIRS = [
+        "../dataset/captioning/mainchar",
+        "../dataset/captioning/background",
+    ]
     
     # 모델 설정
     BLIP_MODEL_PATH = "Salesforce/blip-image-captioning-large"
@@ -42,17 +45,24 @@ class Config:
     WD14_MODEL_PATH = "SmilingWolf/wd-v1-4-moat-tagger-v2"
     WD14_CACHE_DIR = "../models/wd-v1-4-moat-tagger-v2"
 
-    # WD14 임계값
-    WD14_GENERAL_THRESHOLD = 0.35
-    WD14_CHARACTER_THRESHOLD = 0.85
+    # 학습 최적화를 위한 리사이즈 이미지 크기
+    IMAGE_SIZE = 448
     
+    # WD14 임계값 (캐릭터)
+    WD14_CHARS_GENERAL_THRESHOLD = 0.35
+    WD14_CHARS_CHARACTER_THRESHOLD = 0.85
+
+    # WD14 임계값 (풍경)
+    WD14_BGS_GENERAL_THRESHOLD = 0.20
+    WD14_BGS_CHARACTER_THRESHOLD = 0.95
+
     # BLIP 설정
     BLIP_MAX_LENGTH = 75
     BLIP_NUM_BEAMS = 1
     
     # 제거할 WD14 메타 태그
     REMOVE_TAGS = [
-        "1girl", "1boy", "solo", "looking at viewer",
+        "1girl", "1boy", "solo", "looking at viewer", "araffe", "araffed",
         "simple background", "white background", "grey background",
         "highres", "absurdres", "lowres", "bad anatomy",
         "signature", "watermark", "artist name", "dated",
@@ -62,7 +72,7 @@ class Config:
     
     # 출력 설정
     OUTPUT_ENCODING = "utf-8"
-    OVERWRITE_EXISTING = True
+    OVERWRITE_EXISTING = False
     CREATE_BACKUP = True
     
     # 디바이스
@@ -75,54 +85,45 @@ class Config:
 # ==============================
 # 🔧 유틸리티 함수
 # ==============================
-def download_character_tags():
-    """Danbooru 태그 데이터베이스 다운로드"""
-    url = "https://danbooru.donmai.us/tags.json"
 
-    characters = set()
-    page = 1
+class ImageLoadingPrepDataset(torch.utils.data.Dataset):
 
-    print("Downloading character tags from Danbooru...")
+    def __init__(self, image_paths):
+        self.images = image_paths
 
-    while True:
+    def __len__(self):
+        return len(self.images)
+
+    def __getitem__(self, idx):
+        img_path = str(self.images[idx])
+
         try:
-            response = requests.get(
-                url,
-                params={
-                    'search[category]': 4,  # 4 = character
-                    'limit': 1000,
-                    'page': page
-                },
-                timeout=10
-            )
-
-            if not response.ok:
-                break
-
-            data = response.json()
-            if not data:
-                break
-
-            for tag in data:
-                characters.add(tag['name'].lower())
-
-            print(f"Page {page}: {len(characters)} characters")
-            page += 1
-
-            # API rate limit 고려
-            import time
-            time.sleep(1)
-
+            image = Image.open(img_path).convert("RGB")
+            image = preprocess_image(image)
+            # tensor = torch.tensor(image)
         except Exception as e:
-            print(f"Error: {e}")
-            break
+            logger.error(f"Could not load image path: {img_path}, error: {e}")
+            return None
 
-    # 저장
-    with open('danbooru_characters.txt', 'w', encoding='utf-8') as f:
-        f.write('\n'.join(sorted(characters)))
+        return (image, img_path)
 
-    print(f"Total characters saved: {len(characters)}")
-    return characters
+def preprocess_image(image):
+
+    config = Config()
+    image = np.array(image)
+    image = image[:, :, ::-1]  # RGB->BGR
+    # pad to square
+    size = max(image.shape[0:2])
+    pad_x = size - image.shape[1]
+    pad_y = size - image.shape[0]
+    pad_l = pad_x // 2
+    pad_t = pad_y // 2
+    image = np.pad(image, ((pad_t, pad_y - pad_t), (pad_l, pad_x - pad_l), (0, 0)), mode="constant", constant_values=255)
+    image = resize_image(image, image.shape[0], image.shape[1], config.IMAGE_SIZE, config.IMAGE_SIZE)
+    image = image.astype(np.float32)
+
+    return image
+
 
 def lemmatize_tags(tags_list):
     """태그를 기본형으로 변환"""
@@ -138,8 +139,9 @@ def normalize_tags(tags_str):
 
     # 캐릭터명 패턴 (괄호 포함/미포함)
     character_patterns = [
-        r'^[a-z]+ [a-z]+\s*\([^)]+\)$',  # "ganyu (genshin impact)"
-        r'^[a-z]+ [a-z]+ [a-z]+$',        # "artoria pendragon fate" (3단어)
+        r'^[a-z]+ [a-z]+\s*\([^)]+\)$',  # "ganyu yama (genshin impact)"
+        r'^[a-z]+\s*\([^)]+\)$',         # "hutao (genshin impact)" ← 추가됨
+        r'^[a-z]+ [a-z]+ [a-z]+$'        # "artoria pendragon fate" (3단어)
     ]
 
     # 먼저 strip만 하고 원본 케이스 유지
@@ -237,10 +239,20 @@ def generate_wd14_tags(image_path):
     config = Config()
     try:
         # WD14Tagger.tag() 메서드 호출
+
+        if "mainchar" in str(image_path):
+            print(f"⚠️ CHARACTER")
+            general_threshold = config.WD14_CHARS_GENERAL_THRESHOLD
+            character_threshold = config.WD14_CHARS_CHARACTER_THRESHOLD
+        else:
+            print(f"⚠️ BACKGROUND")
+            general_threshold = config.WD14_BGS_GENERAL_THRESHOLD
+            character_threshold = config.WD14_BGS_GENERAL_THRESHOLD
+
         tags_str = wd14_tagger.tag(
             str(image_path),
-            general_threshold=config.WD14_GENERAL_THRESHOLD,
-            character_threshold=config.WD14_CHARACTER_THRESHOLD,
+            general_threshold=general_threshold,
+            character_threshold=character_threshold,
         )
         return tags_str if tags_str else ""
         
@@ -298,10 +310,8 @@ class WD14Tagger:
         self.general_threshold = general_threshold
         self.character_threshold = character_threshold
         self.device = device
-        
         # ✅ tag_freq 초기화
         self.tag_freq = {}
-        
         # 모델 초기화
         self._init_model()
 
@@ -404,7 +414,6 @@ def load_models(config):
 
     try:
 
-
         print("  → NLTK 모델 로딩...")
         # sd-scripts 기준 상대 경로
         nltk_models_dir = os.path.join(os.path.dirname(__file__), "..", "models", "nltk_data")
@@ -440,8 +449,8 @@ def load_models(config):
         wd14_tagger = WD14Tagger(
             config=config,
             model_dir=config.WD14_CACHE_DIR,
-            general_threshold=config.WD14_GENERAL_THRESHOLD,
-            character_threshold=config.WD14_CHARACTER_THRESHOLD,
+            general_threshold=config.WD14_CHARS_GENERAL_THRESHOLD,
+            character_threshold=config.WD14_CHARS_CHARACTER_THRESHOLD,
         )
 
         print("✅ 모델 로딩 완료!\n")

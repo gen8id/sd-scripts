@@ -35,30 +35,11 @@ def process_directory(directory):
     for image_path in tqdm(image_files, desc="캡션 생성"):
 
         try:
-            succ_cnt += generate_caption(image_path)
-            # # 1. BLIP 캡션 생성
-            # blip_caption = generate_blip_caption(
-            #     image_path, blip_model, blip_processor, config
-            # )
-            #
-            # # 2. WD14 태그 생성
-            # wd14_tags = generate_wd14_tags(image_path, wd14_tagger, config)
-            #
-            # # 3. 병합
-            # merged_caption = merge_captions(blip_caption, wd14_tags)
-            #
-            # # 4. 캐릭터명 prefix 추가
-            # if config.CHARACTER_PREFIX:
-            #     char_token = config.CHARACTER_PREFIX.strip()
-            #     merged_caption = f"{char_token}, {merged_caption}"
-            #
-            # # 5. 저장
-            # if merged_caption:
-            #     with open(caption_path, 'w', encoding=config.OUTPUT_ENCODING) as f:
-            #         f.write(merged_caption)
-            #     success_count += 1
-            # else:
-            #     print(f"⚠️ 빈 캡션: {image_path.name}")
+            cnt = generate_caption(image_path)
+            if cnt == 0:
+                print(f"[S] Caption skipped: {image_path}")
+            else:
+                succ_cnt += 1
             
         except Exception as e:
             print(f"❌ 처리 실패 ({image_path.name}): {e}")

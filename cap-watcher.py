@@ -11,35 +11,42 @@ def process_image(image_path):
     try:
         image_path = Path(image_path).as_posix()
         print(f"[🖼️] New image detected: {image_path}")
-        caption = generate_caption(Path(image_path))
-        if not caption:
-            print(f"[❌] Caption failed: {image_path}")
-            return
+        cnt = generate_caption(Path(image_path))
+        if cnt == 0:
+            print(f"[S] Caption skipped: {image_path}")
 
     except Exception as e:
         print(f"❌ 처리 실패 ({image_path.name}): {e}")
         traceback.print_exc()
 
 
-def watch_folder(folder):
-    """폴더 감시 루프"""
+def watch_folders(folders):
+    """여러 폴더를 감시하는 루프"""
     processed = set()
-    print(f"[👀] Watching folder: {folder}")
+    print(f"[👀] Watching folders: {', '.join(folders)}")
+
     while True:
-        for f in os.listdir(folder):
-            path = os.path.join(folder, f)
-            if f.lower().endswith((".png", ".jpg", ".jpeg", ".webp", ".bmp")) and path not in processed:
-                process_image(path)
-                processed.add(path)
+        for folder in folders:
+            if not os.path.isdir(folder):
+                continue
+            for f in os.listdir(folder):
+                path = os.path.join(folder, f)
+                if (
+                    f.lower().endswith((".png", ".jpg", ".jpeg", ".webp", ".bmp"))
+                    and path not in processed
+                ):
+                    process_image(path)
+                    processed.add(path)
         time.sleep(3)
 
 
 def main():
 
     parser = argparse.ArgumentParser(description="BLIP + WD14 하이브리드 캡션 생성")
+    # nargs = "+",
     parser.add_argument(
         "--dirs",
-        nargs="+",
+        default="../dataset/captioning",
         help="처리할 디렉토리 목록 (기본: config에서 설정)"
     )
     parser.add_argument(
@@ -65,6 +72,7 @@ def main():
     config = Config()
     if args.dirs:
         config.DATASET_DIRS = args.dirs
+        config.WATCH_DIR = args.dirs
     config.OVERWRITE_EXISTING = args.overwrite
     config.CHARACTER_PREFIX = args.char
     config.DEVICE = args.device
@@ -82,7 +90,7 @@ def main():
     print("\n🔄 모델 로딩 중...")
     load_models(config)
 
-    watch_folder(config.WATCH_DIR)
+    watch_folders(config.WATCH_DIRS)
 
 
 if __name__ == "__main__":
