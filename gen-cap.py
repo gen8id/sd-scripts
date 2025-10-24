@@ -27,7 +27,7 @@ def process_directory(directory):
         print(f"⚠️ 이미지 파일을 찾을 수 없습니다: {directory}")
         return 0
     
-    print(f"📸 {len(image_files)}개 이미지 발견")
+    print(f"□ {len(image_files)}개 이미지 발견")
     
     succ_cnt = 0
     totl_cnt = image_files
@@ -42,11 +42,11 @@ def process_directory(directory):
                 succ_cnt += 1
             
         except Exception as e:
-            print(f"❌ 처리 실패 ({image_path.name}): {e}")
+            print(f"X 처리 실패 ({image_path.name}): {e}")
             traceback.print_exc()
             continue
     
-    print(f"✅ 완료: {succ_cnt}개 생성, {(totl_cnt - succ_cnt)}개 스킵")
+    print(f"V 완료: {succ_cnt}개 생성, {(totl_cnt - succ_cnt)}개 스킵")
     return succ_cnt
 
 

@@ -15,7 +15,6 @@ prodigy-plus-schedule-free==1.9.0
 prodigyopt==1.1.2
 tensorboard
 safetensors==0.4.4
-# gradio==3.16.2
 altair==4.2.2
 easygui==0.98.3
 toml==0.10.2
@@ -54,5 +53,5 @@ sentencepiece==0.2.0
 # for kohya_ss library
 toml==0.10.2
 xformers==0.0.26.post1 --index-url https://download.pytorch.org/whl/cu121
-pip install triton==2.3.0
+triton==2.3.0
 -e .

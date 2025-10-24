@@ -10,13 +10,13 @@ def process_image(image_path):
     """새 이미지 감지 시 BLIP 캡션 생성"""
     try:
         image_path = Path(image_path).as_posix()
-        print(f"[🖼️] New image detected: {image_path}")
+        print(f"[□] Image file detected: {image_path}")
         cnt = generate_caption(Path(image_path))
         if cnt == 0:
-            print(f"[S] Caption skipped: {image_path}")
+            print(f"[S] Skipped existing: {image_path}")
 
     except Exception as e:
-        print(f"❌ 처리 실패 ({image_path.name}): {e}")
+        print(f"X 처리 실패 ({image_path.name}): {e}")
         traceback.print_exc()
 
 
