@@ -31,8 +31,8 @@ class Config:
 
     # 데이터셋 경로
     DATASET_DIRS = [
-        "../dataset/train/mainchar",
-        "../dataset/train/background",
+        "../dataset/training/mainchar",
+        "../dataset/training/background",
     ]
     WATCH_DIRS = [
         "../dataset/captioning/mainchar",

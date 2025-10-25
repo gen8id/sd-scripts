@@ -4,7 +4,7 @@ accelerate launch --num_cpu_threads_per_process 1 --mixed_precision bf16 ^
   sdxl_train_network.py ^
   --pretrained_model_name_or_path="../models/sd_xl_base_1.0.safetensors" ^
   --train_data_dir="../dataset/train/mainchar" ^
-  --output_dir="../output_model" ^
+  --output_dir="../output_models" ^
   --logging_dir="../logs" ^
   --output_name="karina" ^
   --network_module=networks.lora ^
