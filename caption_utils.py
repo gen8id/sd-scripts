@@ -62,7 +62,7 @@ class Config:
     
     # 제거할 WD14 메타 태그
     REMOVE_TAGS = [
-        "1girl", "1boy", "solo", "looking at viewer", "araffe", "araffed",
+        "1girl", "1boy", "solo", "looking at viewer", "araffe", "araffed", "arafed",
         "simple background", "white background", "grey background",
         "highres", "absurdres", "lowres", "bad anatomy",
         "signature", "watermark", "artist name", "dated",
