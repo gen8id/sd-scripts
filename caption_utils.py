@@ -62,11 +62,11 @@ class Config:
     
     # 제거할 WD14 메타 태그
     REMOVE_TAGS = [
-        "1girl", "1boy", "solo", "looking at viewer", "araffe", "araffed", "arafed",
+        "1girl", "1boy", "solo", "looking at viewer", "araffe", "arafed",
         "simple background", "white background", "grey background",
         "highres", "absurdres", "lowres", "bad anatomy",
         "signature", "watermark", "artist name", "dated",
-        "yuki miku", "snivy", "winter uniform", ":d"
+        "yuki miku", "snivy", "winter uniform", ":d",
         "rating:safe", "rating:questionable", "rating:explicit",
     ]
     
