@@ -21,22 +21,45 @@ def process_image(image_path):
 
 
 def watch_folders(folders):
-    """여러 폴더를 감시하는 루프"""
-    processed = set()
+    """여러 폴더를 감시하는 루프 (1단계 하위 폴더, 수정 감지)"""
+    processed = {}  # path: mtime
     print(f"[👀] Watching folders: {', '.join(folders)}")
+
+    image_extensions = (".png", ".jpg", ".jpeg", ".webp", ".bmp")
 
     while True:
         for folder in folders:
             if not os.path.isdir(folder):
                 continue
-            for f in os.listdir(folder):
-                path = os.path.join(folder, f)
-                if (
-                    f.lower().endswith((".png", ".jpg", ".jpeg", ".webp", ".bmp"))
-                    and path not in processed
-                ):
-                    process_image(path)
-                    processed.add(path)
+
+            for item in os.listdir(folder):
+                item_path = os.path.join(folder, item)
+
+                try:
+                    # 파일인 경우
+                    if os.path.isfile(item_path):
+                        if item.lower().endswith(image_extensions):
+                            mtime = os.path.getmtime(item_path)
+                            if item_path not in processed or processed[item_path] != mtime:
+                                print(f"[🔍] {'New' if item_path not in processed else 'Modified'}: {item}")
+                                process_image(item_path)
+                                processed[item_path] = mtime
+
+                    # 폴더인 경우 (1단계만)
+                    elif os.path.isdir(item_path):
+                        for f in os.listdir(item_path):
+                            file_path = os.path.join(item_path, f)
+                            if os.path.isfile(file_path) and f.lower().endswith(image_extensions):
+                                mtime = os.path.getmtime(file_path)
+                                if file_path not in processed or processed[file_path] != mtime:
+                                    status = 'New' if file_path not in processed else 'Modified'
+                                    print(f"[🔍] {status}: [{item}] {f}")
+                                    process_image(file_path)
+                                    processed[file_path] = mtime
+
+                except Exception as e:
+                    print(f"[❌] Error: {item_path} - {e}")
+
         time.sleep(3)
 
 

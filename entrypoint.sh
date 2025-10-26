@@ -16,5 +16,4 @@ fi
 #python -c "import torch; print(torch.__version__)"
 #python -c "import transformers; print(transformers.__version__)"
 
-cd /app/sdxl_train_captioner/sd-scripts
 python cap-watcher.py

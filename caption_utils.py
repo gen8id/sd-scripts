@@ -62,7 +62,7 @@ class Config:
     
     # 제거할 WD14 메타 태그
     REMOVE_TAGS = [
-        "1girl", "1boy", "solo", "looking at viewer", "araffe", "arafed",
+        "1girl", "1boy", "solo", "looking at viewer",
         "simple background", "white background", "grey background",
         "highres", "absurdres", "lowres", "bad anatomy",
         "signature", "watermark", "artist name", "dated",
@@ -165,9 +165,36 @@ def normalize_tags(tags_str):
 
 
 def remove_unwanted_tags(tags_list, remove_list):
-    """불필요한 태그 제거"""
-    remove_set = set(tag.lower() for tag in remove_list)
-    return [tag for tag in tags_list if tag not in remove_set]
+    """불필요한 태그 제거 (디버그 버전)"""
+    remove_set = set()
+    for tag in remove_list:
+        normalized = tag.lower().strip()
+        remove_set.add(normalized)
+        remove_set.add(normalized.replace(' ', '_'))
+        remove_set.add(normalized.replace('_', ' '))
+
+    filtered = []
+    removed = []
+
+    for tag in tags_list:
+        tag_normalized = tag.lower().strip()
+
+        # 매칭 확인
+        is_removed = (
+                tag_normalized in remove_set or
+                tag_normalized.replace(' ', '_') in remove_set or
+                tag_normalized.replace('_', ' ') in remove_set
+        )
+
+        if is_removed:
+            removed.append(tag)
+        else:
+            filtered.append(tag)
+
+    if removed:
+        print(f"[🗑️] Removed tags: {', '.join(removed[:5])}{'...' if len(removed) > 5 else ''}")
+
+    return filtered
 
 
 def merge_captions(blip_caption, wd14_tags):
@@ -215,23 +242,55 @@ def generate_blip_caption(image_path):
     """BLIP으로 자연어 캡션 생성"""
     config = Config()
     try:
-
         image = Image.open(image_path).convert("RGB")
         inputs = blip_processor(image, return_tensors="pt").to(config.DEVICE)
-        
+
         with torch.no_grad():
             outputs = blip_model.generate(
                 **inputs,
                 max_length=config.BLIP_MAX_LENGTH,
                 num_beams=config.BLIP_NUM_BEAMS,
             )
-        
+
         caption = blip_processor.decode(outputs[0], skip_special_tokens=True)
+
+        # BLIP 특수 오류 단어 제거
+        caption = clean_blip_caption(caption)
+
         return caption.strip()
-        
+
     except Exception as e:
         print(f"⚠️ BLIP 생성 실패 ({image_path.name}): {e}")
         return ""
+
+
+def clean_blip_caption(caption):
+    """BLIP 캡션에서 알려진 오류 단어 제거"""
+    if not caption:
+        return ""
+
+    # BLIP 특수 오류 단어들
+    blip_artifacts = [
+        "araffe", "arafed", "araffes",  # giraffe 오류
+        "blury",  # blurry 오타
+        "there is a", "there are",  # 불필요한 존재 표현
+        "image of", "picture of",  # 메타 설명
+        "photo of",  # 메타 설명
+    ]
+
+    import re
+    cleaned = caption
+
+    for artifact in blip_artifacts:
+        # 단어 경계를 고려해서 제거 (대소문자 무시)
+        pattern = r'\b' + re.escape(artifact) + r'\b'
+        cleaned = re.sub(pattern, '', cleaned, flags=re.IGNORECASE)
+
+    # 연속 공백 정리
+    cleaned = re.sub(r'\s+', ' ', cleaned)
+    cleaned = cleaned.strip()
+
+    return cleaned
 
 
 def generate_wd14_tags(image_path):
@@ -260,6 +319,25 @@ def generate_wd14_tags(image_path):
         print(f"⚠️ WD14 생성 실패 ({image_path.name}): {e}")
         return ""
 
+
+def extract_tag_from_folder(image_path):
+    """
+    이미지 경로에서 폴더명 기반 태그 추출
+    예: captioning/02_alice/img.jpg → "alice"
+    """
+    from pathlib import Path
+
+    folder_name = Path(image_path).parent.name
+
+    # 패턴: 숫자_태그명 (예: "02_alice")
+    parts = folder_name.split('_', 1)
+    if len(parts) == 2 and parts[0].isdigit():
+        tag_name = parts[1].strip()
+        print(f"[📌] Extracted folder tag: '{tag_name}' from {folder_name}")
+        return tag_name
+
+    print(f"[⚠️] No tag pattern found in folder: {folder_name}")
+    return None
 
 # ==============================
 # 📁 파일 처리
@@ -462,44 +540,53 @@ def load_models(config):
 
 
 def generate_caption(image_path):
-
+    """이미지에 대한 캡션 생성 (폴더 태그 자동 추가)"""
     config = Config()
-    # 캡션 파일 경로
     caption_path = image_path.with_suffix('.txt')
 
     # 기존 파일 존재 확인
     if caption_path.exists() and not config.OVERWRITE_EXISTING:
+        print(f"[⏭️] Skipping existing: {image_path.name}")
         return 0
 
     # 백업 생성
     if config.CREATE_BACKUP and caption_path.exists():
         create_backup(caption_path)
 
+    print(f"\n[🎯] Processing: {image_path.name}")
+
     # 1. BLIP 캡션 생성
-    # blip_caption = generate_blip_caption(
-    #     image_path, blip_model, blip_processor, config
-    # )
     blip_caption = generate_blip_caption(image_path)
+    print(f"  BLIP: {blip_caption[:60]}...")
 
     # 2. WD14 태그 생성
-    # wd14_tags = generate_wd14_tags(image_path, wd14_tagger, config)
     wd14_tags = generate_wd14_tags(image_path)
+    print(f"  WD14: {wd14_tags[:60]}...")
 
     # 3. 병합
     merged_caption = merge_captions(blip_caption, wd14_tags)
+    print(f"  Merged: {merged_caption[:60]}...")
 
-    # 4. 캐릭터명 prefix 추가
-    if config.CHARACTER_PREFIX:
+    # 4. 폴더명에서 태그 추출 및 추가
+    folder_tag = extract_tag_from_folder(image_path)
+    if folder_tag:
+        merged_caption = f"{folder_tag}, {merged_caption}"
+        print(f"  With tag: {merged_caption[:60]}...")
+    # 5. 대체: CHARACTER_PREFIX 사용 (폴더 태그 없을 때만)
+    elif config.CHARACTER_PREFIX:
         char_token = config.CHARACTER_PREFIX.strip()
         merged_caption = f"{char_token}, {merged_caption}"
+        print(f"  With prefix: {merged_caption[:60]}...")
 
-    # 5. 저장
+    # 6. 저장
     if merged_caption:
         with open(caption_path, 'w', encoding=config.OUTPUT_ENCODING) as f:
             f.write(merged_caption)
+        print(f"[✅] Saved: {caption_path.name}")
         return 1
     else:
-        print(f"⚠️ 빈 캡션: {image_path.name}")
+        print(f"[⚠️] Empty caption: {image_path.name}")
+        return 0
 
 
 # ==============================

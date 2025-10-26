@@ -9,7 +9,7 @@ accelerate launch --num_cpu_threads_per_process 1 --mixed_precision bf16 \
   --train_data_dir="../dataset/training/mainchar" \
   --output_dir="../output_models" \
   --logging_dir="../logs" \
-  --output_name="karina" \
+  --output_name="ocarina" \
   --network_module=networks.lora \
   --network_dim=32 \
   --network_alpha=16 \

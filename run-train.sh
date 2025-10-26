@@ -71,17 +71,6 @@ actual_epochs = max(1, round(target_total_steps / steps_per_epoch))
 actual_epochs = min(max(actual_epochs, 5), 30)
 actual_total_steps = actual_epochs * steps_per_epoch
 
-print(f"{total_raw_images}:{optimal_repeats}:{actual_epochs}:{steps_per_epoch}:{actual_total_steps}")
-EOF
-)
-
-if [[ $PARAMS == ERROR* ]]; then
-    echo "Error: No images found!"
-    exit 1
-fi
-
-IFS=':' read -r IMAGE_COUNT REPEATS EPOCHS STEPS_PER_EPOCH TOTAL_STEPS <<< "$PARAMS"
-
 echo "==================================="
 echo "Auto-calculated Training Config"
 echo "==================================="
