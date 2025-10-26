@@ -333,10 +333,8 @@ def extract_tag_from_folder(image_path):
     parts = folder_name.split('_', 1)
     if len(parts) == 2 and parts[0].isdigit():
         tag_name = parts[1].strip()
-        print(f"[📌] Extracted folder tag: '{tag_name}' from {folder_name}")
         return tag_name
 
-    print(f"[⚠️] No tag pattern found in folder: {folder_name}")
     return None
 
 # ==============================
@@ -546,46 +544,40 @@ def generate_caption(image_path):
 
     # 기존 파일 존재 확인
     if caption_path.exists() and not config.OVERWRITE_EXISTING:
-        print(f"[⏭️] Skipping existing: {image_path.name}")
         return 0
 
     # 백업 생성
     if config.CREATE_BACKUP and caption_path.exists():
         create_backup(caption_path)
 
-    print(f"\n[🎯] Processing: {image_path.name}")
-
     # 1. BLIP 캡션 생성
     blip_caption = generate_blip_caption(image_path)
-    print(f"  BLIP: {blip_caption[:60]}...")
 
     # 2. WD14 태그 생성
     wd14_tags = generate_wd14_tags(image_path)
-    print(f"  WD14: {wd14_tags[:60]}...")
 
     # 3. 병합
     merged_caption = merge_captions(blip_caption, wd14_tags)
-    print(f"  Merged: {merged_caption[:60]}...")
 
-    # 4. 폴더명에서 태그 추출 및 추가
+    # ✨ 4. 폴더명에서 태그 추출 및 추가 (NEW!)
     folder_tag = extract_tag_from_folder(image_path)
     if folder_tag:
         merged_caption = f"{folder_tag}, {merged_caption}"
-        print(f"  With tag: {merged_caption[:60]}...")
+        print(f"  [📌] Added folder tag: '{folder_tag}'")
     # 5. 대체: CHARACTER_PREFIX 사용 (폴더 태그 없을 때만)
     elif config.CHARACTER_PREFIX:
         char_token = config.CHARACTER_PREFIX.strip()
         merged_caption = f"{char_token}, {merged_caption}"
-        print(f"  With prefix: {merged_caption[:60]}...")
+        print(f"  [🏷️] Added prefix: '{char_token}'")
 
     # 6. 저장
     if merged_caption:
         with open(caption_path, 'w', encoding=config.OUTPUT_ENCODING) as f:
             f.write(merged_caption)
-        print(f"[✅] Saved: {caption_path.name}")
+        print(f"[✅] Caption saved")
         return 1
     else:
-        print(f"[⚠️] Empty caption: {image_path.name}")
+        print(f"⚠️ 빈 캡션: {image_path.name}")
         return 0
 
 
