@@ -8,6 +8,7 @@ SDXL LoRA 일괄 학습 스크립트
 
 import os
 import sys
+import toml
 import json
 import subprocess
 import argparse
@@ -27,48 +28,53 @@ class TrainingConfig:
 
         # VRAM에 따른 설정
         if self.vram_size >= 20:
-            self.config_file = "config-24g.json"
-            self.precision = "bf16"
+            self.config_file = "config-24g.toml"
+            self.precision = getattr(self, "precision", "bf16")  # fallback 안전처리
             self.target_steps = 1800
         else:
-            # 16GB 이하는 fp16 config 사용
-            self.config_file = "config-16g.json"
+            self.config_file = "config-16g.toml"
             self.precision = "fp16"
             self.target_steps = 1500
+
+        print(f"🧠 VRAM 감지 결과: {self.vram_size}GB / Precision={self.precision}")
 
         # Config 파일 로드
         self.load_config()
 
+
     def get_vram_size(self):
         """NVIDIA GPU VRAM 크기 감지 (GB)"""
         try:
+            # 명령어를 리스트로 그대로 전달 (shell=False)
             cmd = [
                 "nvidia-smi",
                 "--query-gpu=memory.total",
                 "--format=csv,noheader,nounits",
-                f"-i {self.gpu_id}"
+                "-i", str(self.gpu_id)
             ]
             result = subprocess.run(
-                ' '.join(cmd),
-                shell=True,
+                cmd,
                 capture_output=True,
-                text=True
+                text=True,
+                check=True
             )
-            vram_mb = int(result.stdout.strip())
+            vram_mb = int(result.stdout.strip().split("\n")[0])
             vram_gb = vram_mb // 1024
             return vram_gb
+
         except Exception as e:
-            print(f"⚠️ VRAM 감지 실패, 기본값(24GB) 사용: {e}")
+            print(f"⚠️ VRAM 감지 실패 ({e}) — 기본값(24GB, bf16) 사용")
+            self.precision = "bf16"
             return 24
 
     def load_config(self):
-        """config.json 로드"""
+        """config.toml 로드"""
         if not os.path.exists(self.config_file):
             print(f"❌ Config 파일 없음: {self.config_file}")
             sys.exit(1)
 
         with open(self.config_file, 'r', encoding='utf-8') as f:
-            self.config = json.load(f)
+            self.config = toml.load(f)
 
         self.train_dir = self.config['folders']['train_data_dir']
         self.output_dir = self.config['folders']['output_dir']
@@ -82,8 +88,9 @@ class LoRATrainer:
         self.config = training_config
         self.image_extensions = {'.jpg', '.jpeg', '.png', '.webp', '.bmp'}
 
+
     def find_training_folders(self):
-        """학습 폴더 찾기 (순서_이름 패턴)"""
+        """학습 폴더 찾기 (순서_이름 패턴) - 다중 카테고리 지원"""
         train_dir = self.config.train_dir
 
         if not os.path.isdir(train_dir):
@@ -91,25 +98,51 @@ class LoRATrainer:
             return []
 
         folders = []
-        for item in os.listdir(train_dir):
-            item_path = os.path.join(train_dir, item)
-            if not os.path.isdir(item_path):
+
+        # mainchar와 background 폴더 탐색
+        category_folders = ['mainchar', 'background']
+
+        for category in category_folders:
+            category_path = os.path.join(train_dir, category)
+
+            if not os.path.isdir(category_path):
+                print(f"⚠️  카테고리 폴더 없음: {category_path}")
                 continue
 
-            # 패턴: 01_alice, 02_bob 등
-            parts = item.split('_', 1)
-            if len(parts) == 2 and parts[0].isdigit():
-                order = int(parts[0])
-                name = parts[1]
-                folders.append({
-                    'order': order,
-                    'name': name,
-                    'path': item_path,
-                    'folder': item
-                })
+            # 각 카테고리 내부의 학습 폴더 탐색
+            for item in os.listdir(category_path):
+                item_path = os.path.join(category_path, item)
+                if not os.path.isdir(item_path):
+                    continue
+
+                # 패턴: 01_alice, 5_alic3 woman 등
+                # 언더스코어 또는 공백으로 분리 (DreamBooth 형식 지원)
+                parts = item.split('_', 1)
+                if len(parts) == 2 and parts[0].isdigit():
+                    order = int(parts[0])
+                    name = parts[1]
+                    folders.append({
+                        'order': order,
+                        'name': name,
+                        'path': item_path,
+                        'folder': item,
+                        'category': category  # 카테고리 정보 추가
+                    })
+
+        if not folders:
+            print(f"❌ 학습 폴더를 찾을 수 없습니다!")
+            print(f"   경로: {train_dir}")
+            print(f"   찾는 위치: {train_dir}/mainchar/, {train_dir}/background/")
+            print(f"   패턴: 01_name, 02_name, 5_name class, ...")
+            return []
 
         # 순서대로 정렬
         folders.sort(key=lambda x: x['order'])
+
+        print(f"✅ 발견된 학습 폴더: {len(folders)}개")
+        for f in folders:
+            print(f"   [{f['category']}] {f['order']:02d}_{f['name']}")
+
         return folders
 
     def count_images(self, folder_path):
@@ -195,12 +228,12 @@ class LoRATrainer:
             "--num_cpu_threads_per_process", "1",
             "--mixed_precision", self.config.precision,
             "sdxl_train_network.py",
-            f"--config_file={self.config.config_file.replace('.toml', '.json')}",
+            f"--config_file={self.config.config_file}",
             f"--train_data_dir={folder_path}",
             f"--output_name={name}",
             f"--max_train_epochs={params['epochs']}",
             f"--dataset_repeats={params['repeats']}",
-            f"--mixed_precision={self.config.precision}"
+            '--resume='  # 이 줄 추가 (빈 문자열)
         ]
 
         # 실행
@@ -304,8 +337,8 @@ def main():
         epilog="""
 사용 예시:
   python train_batch.py
-  python train_batch.py config-16g.json
-  python train_batch.py config-24g.json 0 15
+  python train_batch.py config-16g.toml
+  python train_batch.py config-24g.toml 0 15
 
 폴더 구조:
   training/
@@ -321,8 +354,8 @@ def main():
     parser.add_argument(
         "config",
         nargs="?",
-        default="config-24g.json",
-        help="Config 파일 (기본: config-24g.json)"
+        default="config-24g.toml",
+        help="Config 파일 (기본: config-24g.toml)"
     )
 
     parser.add_argument(

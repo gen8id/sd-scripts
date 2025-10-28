@@ -1,0 +1,43 @@
+[general]
+shuffle_caption = true
+caption_extension = ".txt"
+keep_tokens = 1
+seed = 47
+
+[model]
+pretrained_model_name_or_path = "../models/sd_xl_base_1.0.safetensors"
+vae = "stabilityai/sd-vae-ft-mse"
+
+[training]
+resolution = "768,768"
+batch_size = 1
+learning_rate = 0.0001
+lr_scheduler = "cosine"
+lr_warmup_steps = 100
+max_train_epochs = 15
+optimizer_type = "AdamW8bit"
+mixed_precision = "fp16"
+gradient_checkpointing = true
+clip_skip = 2
+network_module = "networks.lora"
+network_dim = 32
+network_alpha = 16
+save_precision = "fp16"
+save_every_n_epochs = 1
+network_train_unet_only = true
+cache_text_encoder_outputs = true
+no_half_vae = true
+
+[folders]
+train_data_dir = "../dataset/training/mainchar"
+output_dir = "../output_models"
+logging_dir = "../logs"
+
+[advanced]
+bucket_reso_steps = 64
+bucket_no_upscale = true
+xformers = true
+cache_latents = true
+cache_latents_to_disk = true
+min_bucket_reso = 512
+max_bucket_reso = 1024

@@ -9,6 +9,7 @@ SDXL LoRA 단일 학습 스크립트 (고급 사용자용)
 import os
 import sys
 import json
+import toml
 import subprocess
 import argparse
 from pathlib import Path
@@ -91,7 +92,7 @@ def main():
   python train_single.py \\
     --folder ../dataset/training/01_alice \\
     --output alice_v2 \\
-    --config config-24g.json \\
+    --config config-24g.toml \\
     --gpu 0 \\
     --epochs 25 \\
     --repeats 40 \\
@@ -112,8 +113,8 @@ def main():
     # 기본 설정
     parser.add_argument(
         "--config",
-        default="config-24g.json",
-        help="Config 파일 (기본: config-24g.json)"
+        default="config-24g.toml",
+        help="Config 파일 (기본: config-24g.toml)"
     )
 
     parser.add_argument(
@@ -219,11 +220,11 @@ def main():
     # Config 자동 선택
     if vram_size >= 20:
         precision = "bf16"
-        if args.config == "config-24g.json":
-            config_file = "config-24g.json"
+        if args.config == "config-24g.toml":
+            config_file = "config-24g.toml"
     else:
         precision = "fp16"
-        config_file = "config-16g.json"
+        config_file = "config-16g.toml"
         print(f"⚠️ VRAM {vram_size}GB < 20GB, fp16 모드로 전환")
 
     # Config 로드
@@ -232,7 +233,7 @@ def main():
         sys.exit(1)
 
     with open(config_file, 'r', encoding='utf-8') as f:
-        config = json.load(f)
+        config = toml.load(f)
 
     batch_size = args.batch_size or config['training'].get('batch_size', 1)
 
@@ -336,12 +337,12 @@ def main():
         "--num_cpu_threads_per_process", "1",
         "--mixed_precision", precision,
         "sdxl_train_network.py",
-        f"--config_file={config_file.replace('.toml', '.json')}",
+        f"--config_file={config_file}",
         f"--train_data_dir={folder_path}",
         f"--output_name={output_name}",
         f"--max_train_epochs={epochs}",
         f"--dataset_repeats={repeats}",
-        f"--mixed_precision={precision}"
+        '--resume='  # 이 줄 추가 (빈 문자열)
     ]
 
     # 오버라이드 추가
