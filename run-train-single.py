@@ -18,8 +18,13 @@ from pathlib import Path
 def get_vram_size(gpu_id=0):
     """NVIDIA GPU VRAM 크기 감지 (GB)"""
     try:
-        cmd = f"nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits -i {gpu_id}"
-        result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+        cmd = [
+            "nvidia-smi",
+            "--query-gpu=memory.total",
+            "--format=csv,noheader,nounits",
+            "-i", str(gpu_id)
+        ]
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
         vram_mb = int(result.stdout.strip())
         return vram_mb // 1024
     except:
@@ -30,8 +35,8 @@ def count_images(folder_path):
     """폴더 내 이미지 개수 세기"""
     extensions = {'.jpg', '.jpeg', '.png', '.webp', '.bmp'}
     count = 0
-    for file in os.listdir(folder_path):
-        if Path(file).suffix.lower() in extensions:
+    for file in folder_path.iterdir():
+        if file.suffix.lower() in extensions:
             count += 1
     return count
 
@@ -220,11 +225,10 @@ def main():
     # Config 자동 선택
     if vram_size >= 20:
         precision = "bf16"
-        if args.config == "config-24g.toml":
-            config_file = "config-24g.toml"
+        config_file = args.config if args.config else "config-24g.toml"
     else:
         precision = "fp16"
-        config_file = "config-16g.toml"
+        config_file = args.config if args.config else "config-16g.toml"
         print(f"⚠️ VRAM {vram_size}GB < 20GB, fp16 모드로 전환")
 
     # Config 로드
@@ -341,8 +345,8 @@ def main():
         f"--train_data_dir={folder_path}",
         f"--output_name={output_name}",
         f"--max_train_epochs={epochs}",
-        f"--dataset_repeats={repeats}",
-        '--resume='  # 이 줄 추가 (빈 문자열)
+        f"--dataset_repeats={repeats}"
+        # '--resume='  # 이 줄 추가 (빈 문자열)
     ]
 
     # 오버라이드 추가

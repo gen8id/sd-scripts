@@ -29,7 +29,7 @@ class TrainingConfig:
         # VRAM에 따른 설정
         if self.vram_size >= 20:
             self.config_file = "config-24g.toml"
-            self.precision = getattr(self, "precision", "bf16")  # fallback 안전처리
+            self.precision = "bf16"  # 항상 bf16
             self.target_steps = 1800
         else:
             self.config_file = "config-16g.toml"
@@ -187,53 +187,50 @@ class LoRATrainer:
         }
 
     def train_single_lora(self, folder_info):
-        """단일 LoRA 학습 실행"""
+        """단일 LoRA 학습"""
         name = folder_info['name']
+        folder = folder_info['folder']
         folder_path = folder_info['path']
+        category = folder_info['category']  # 추가!
+
+        # 이미지 개수 계산
+        num_images = self.count_images(folder_path)
+        if num_images == 0:
+            print(f"❌ {name}: 이미지 없음")
+            return False
+
+        # 학습 파라미터 자동 계산
+        params = self.calculate_training_params(num_images)
+        repeats = params['repeats']
+        epochs = params['epochs']
 
         print(f"\n{'=' * 70}")
         print(f"🎯 Training LoRA: {name}")
         print(f"{'=' * 70}")
-
-        # 이미지 개수 확인
-        image_count = self.count_images(folder_path)
-        if image_count == 0:
-            print(f"⚠️ 이미지 없음: {folder_path}")
-            print(f"{'=' * 70}\n")
-            return False
-
-        # 파라미터 계산
-        params = self.calculate_training_params(image_count)
-
-        # 정보 출력
         print(f"📊 Training Configuration")
         print(f"{'-' * 70}")
-        print(f"  GPU ID:          {self.config.gpu_id}")
-        print(f"  VRAM:            {self.config.vram_size}GB")
-        print(f"  Precision:       {self.config.precision}")
-        print(f"  Config:          {self.config.config_file}")
-        print(f"  Folder:          {folder_info['folder']}")
-        print(f"  Images:          {image_count}")
-        print(f"  Repeats:         {params['repeats']}" +
-              (" (forced)" if self.config.force_repeats else " (auto)"))
-        print(f"  Images/epoch:    {image_count * params['repeats']}")
-        print(f"  Steps/epoch:     {params['steps_per_epoch']}")
-        print(f"  Epochs:          {params['epochs']}")
-        print(f"  Total steps:     {params['total_steps']}")
-        print(f"{'-' * 70}\n")
+        print(f"  Category:        {category}")
+        print(f"  Folder:          {folder}")
+        print(f"  Images:          {num_images}")
+        print(f"  Repeats:         {repeats} (auto)")
+        print(f"  Epochs:          {epochs}")
+        print(f"  Total steps:     {num_images * repeats * epochs}")
+        print(f"{'-' * 70}")
 
-        # accelerate 명령어 구성
+        # train_data_dir는 카테고리 폴더 (01_alic3 woman의 부모)
+        train_data_dir = os.path.join(self.config.train_dir, category)
+
         cmd = [
-            "accelerate", "launch",
-            "--num_cpu_threads_per_process", "1",
-            "--mixed_precision", self.config.precision,
-            "sdxl_train_network.py",
-            f"--config_file={self.config.config_file}",
-            f"--train_data_dir={folder_path}",
-            f"--output_name={name}",
-            f"--max_train_epochs={params['epochs']}",
-            f"--dataset_repeats={params['repeats']}",
-            '--resume='  # 이 줄 추가 (빈 문자열)
+            'accelerate', 'launch',
+            '--num_cpu_threads_per_process', '1',
+            '--mixed_precision', self.config.precision,  # LoRATrainer -> TrainingConfig 참조
+            'sdxl_train_network.py',
+            f'--config_file={self.config.config_file}',  # 동일하게 참조
+            f'--train_data_dir={train_data_dir}',
+            f'--output_name={name.replace(" ", "_")}',
+            f'--max_train_epochs={epochs}',
+            f'--dataset_repeats={repeats}',
+            '--resume=',
         ]
 
         # 실행
@@ -242,6 +239,7 @@ class LoRATrainer:
             env['CUDA_VISIBLE_DEVICES'] = str(self.config.gpu_id)
 
             print(f"🚀 Starting training...\n")
+            print(f"📂 Train dir: {train_data_dir}")
             result = subprocess.run(cmd, env=env, check=True)
 
             print(f"\n✅ {name} 학습 완료!")

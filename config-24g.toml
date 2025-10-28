@@ -1,12 +1,15 @@
 [general]
-shuffle_caption = true
+shuffle_caption = false
+caption_dropout_rate = 0.0
+token_warmup_step = 0
+caption_tag_dropout_rate = 0.0
 caption_extension = ".txt"
 keep_tokens = 1
 seed = 47
 
 [model]
 pretrained_model_name_or_path = "../models/sd_xl_base_1.0.safetensors"
-vae = "stabilityai/sd-vae-ft-mse"
+vae = "../models/sdxl.vae.safetensors"
 
 [training]
 resolution = "1024,1024"
@@ -25,10 +28,10 @@ network_alpha = 16
 save_precision = "bf16"
 save_every_n_epochs = 1
 network_train_unet_only = true
-cache_text_encoder_outputs = true
+cache_text_encoder_outputs = true   # 캐시 유지
 
 [folders]
-train_data_dir = "../dataset/training/mainchar"
+train_data_dir = "../dataset/training"
 output_dir = "../output_models"
 logging_dir = "../logs"
 
