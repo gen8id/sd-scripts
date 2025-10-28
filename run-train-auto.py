@@ -27,6 +27,7 @@ class TrainingConfig:
 
         # VRAM에 따른 설정
         if self.vram_size >= 20:
+            self.config_file = "config-24g.json"
             self.precision = "bf16"
             self.target_steps = 1800
         else:
@@ -194,7 +195,7 @@ class LoRATrainer:
             "--num_cpu_threads_per_process", "1",
             "--mixed_precision", self.config.precision,
             "sdxl_train_network.py",
-            f"--config_file={self.config.config_file}",
+            f"--config_file={self.config.config_file.replace('.toml', '.json')}",
             f"--train_data_dir={folder_path}",
             f"--output_name={name}",
             f"--max_train_epochs={params['epochs']}",

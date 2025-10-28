@@ -336,7 +336,7 @@ def main():
         "--num_cpu_threads_per_process", "1",
         "--mixed_precision", precision,
         "sdxl_train_network.py",
-        f"--config_file={config_file}",
+        f"--config_file={config_file.replace('.toml', '.json')}",
         f"--train_data_dir={folder_path}",
         f"--output_name={output_name}",
         f"--max_train_epochs={epochs}",
