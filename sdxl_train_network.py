@@ -225,12 +225,26 @@ if __name__ == "__main__":
     train_util.verify_command_line_training_args(args)
     args = train_util.read_config_from_file(args, parser)
 
+    raw_resume = getattr(args, "resume", None)
+
     script_dir = Path(__file__).parent
     pretrained_path = (script_dir / args.pretrained_model_name_or_path).resolve()
-    resume = (script_dir / args.resume).resolve()
+    # resume = (script_dir / args.resume).resolve()
     # argparse에 전달
     args.pretrained_model_name_or_path = str(pretrained_path)
-    args.resume = str(resume)
+    # args.resume = str(resume)
+    if raw_resume is None:
+        # 명시적으로 None이면 그대로 두기 (나중의 resume 처리 로직이 이를 체크해야 함)
+        args.resume = None
+    elif isinstance(raw_resume, str) and raw_resume.strip() == "":
+        # 빈 문자열이면 None으로 바꿔 안전 처리
+        args.resume = None
+    else:
+        # 문자열이 존재하면 절대 경로로 정규화 (script_dir 상대 경로 처리 유지)
+        try:
+            args.resume = str((script_dir / raw_resume).resolve())
+        except Exception:
+            args.resume = str(Path(raw_resume).resolve())
 
     trainer = SdxlNetworkTrainer()
     trainer.train(args)

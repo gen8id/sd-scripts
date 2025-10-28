@@ -229,8 +229,7 @@ class LoRATrainer:
             f'--train_data_dir={train_data_dir}',
             f'--output_name={name.replace(" ", "_")}',
             f'--max_train_epochs={epochs}',
-            f'--dataset_repeats={repeats}',
-            '--resume=',
+            f'--dataset_repeats={repeats}'
         ]
 
         # 실행

@@ -346,8 +346,20 @@ def main():
         f"--output_name={output_name}",
         f"--max_train_epochs={epochs}",
         f"--dataset_repeats={repeats}"
-        # '--resume='  # 이 줄 추가 (빈 문자열)
     ]
+
+    # resume(이어받기) 처리 — 안전하게
+    # 대부분의 경우 users want to load model weights -> use --network_weights
+    # Only use --resume if you have an accelerator checkpoint (full state)
+    # resume 값이 실제로 존재하는 파일일 때만 전달
+    if args.resume:
+        if os.path.exists(args.resume):
+            # 대부분의 경우 model weights 로드가 목적이라면 network_weights로 전달
+            cmd.append(f"--network_weights={str(args.resume)}")
+            print(f"\n🔄 Resuming weights from: {args.resume}\n")
+        else:
+            print(f"❌ Resume 파일이 존재하지 않습니다: {args.resume}")
+            sys.exit(1)
 
     # 오버라이드 추가
     if args.batch_size:
