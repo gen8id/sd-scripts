@@ -32,12 +32,24 @@ def get_vram_size(gpu_id=0):
 
 
 def count_images(folder_path):
-    """폴더 내 이미지 개수 세기"""
+    """폴더 내 이미지 개수 세기 (1단계 하위 폴더까지 포함)"""
     extensions = {'.jpg', '.jpeg', '.png', '.webp', '.bmp'}
     count = 0
+
+    folder_path = Path(folder_path)
+
+    # 상위 폴더 안의 직접 이미지
     for file in folder_path.iterdir():
-        if file.suffix.lower() in extensions:
+        if file.is_file() and file.suffix.lower() in extensions:
             count += 1
+
+    # 바로 아래 1단계 하위 폴더 이미지
+    for subfolder in folder_path.iterdir():
+        if subfolder.is_dir():
+            for file in subfolder.iterdir():
+                if file.is_file() and file.suffix.lower() in extensions:
+                    count += 1
+
     return count
 
 
