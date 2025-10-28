@@ -154,36 +154,50 @@ class LoRATrainer:
         return count
 
     def calculate_training_params(self, image_count):
-        """이미지 수에 따른 최적 학습 파라미터 계산"""
+        """
+        이미지 수 기반 자동 파라미터 계산 (24GB+ 기준)
+
+        Args:
+            image_count (int): 학습 이미지 수
+            vram_size (int): GPU VRAM 크기 (GB)
+            batch_size (int): 배치 사이즈
+            target_total_steps (int): 목표 총 학습 스텝 수
+        Returns:
+            dict: repeats, epochs, steps_per_epoch, total_steps
+        """
         batch_size = self.config.batch_size
         target_steps = self.config.target_steps
 
         # 강제 반복 횟수가 지정되면 사용
         if self.config.force_repeats is not None:
-            optimal_repeats = self.config.force_repeats
+            repeat = self.config.force_repeats
         else:
-            # 이미지 수에 따른 자동 계산
+            # 1️⃣ repeat 기본값 설정
             if image_count < 20:
-                optimal_repeats = max(80, min(200, target_steps // (image_count * 10)))
+                repeat = 40
             elif image_count < 50:
-                optimal_repeats = max(30, min(80, target_steps // (image_count * 10)))
+                repeat = 20
             elif image_count < 100:
-                optimal_repeats = max(15, min(30, target_steps // (image_count * 10)))
+                repeat = 15
             else:
-                optimal_repeats = max(5, min(20, target_steps // (image_count * 10)))
+                repeat = 10  # 100장 이상이면 10 정도
 
-        # Epochs 계산
-        images_per_epoch = image_count * optimal_repeats
-        steps_per_epoch = images_per_epoch // batch_size
-        actual_epochs = max(1, round(target_steps / steps_per_epoch))
-        actual_epochs = min(max(actual_epochs, 5), 30)
-        actual_total_steps = actual_epochs * steps_per_epoch
+        # 2️⃣ steps_per_epoch 계산
+        steps_per_epoch = (image_count * repeat) // batch_size
+
+        # 3️⃣ epoch 계산
+        epochs = max(1, round(target_steps / steps_per_epoch))
+        # 최소 5, 최대 30 epoch 제한
+        epochs = min(max(epochs, 5), 30)
+
+        # 4️⃣ 실제 total_steps
+        total_steps = steps_per_epoch * epochs
 
         return {
-            'repeats': optimal_repeats,
-            'epochs': actual_epochs,
-            'steps_per_epoch': steps_per_epoch,
-            'total_steps': actual_total_steps
+            "repeats": repeat,
+            "epochs": epochs,
+            "steps_per_epoch": steps_per_epoch,
+            "total_steps": total_steps
         }
 
     def train_single_lora(self, folder_info):
