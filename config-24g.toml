@@ -13,22 +13,22 @@ vae = "../models/sdxl.vae.safetensors"
 
 [training]
 resolution = "1024,1024"
-batch_size = 1
-learning_rate = 0.0001
-lr_scheduler = "cosine"
+batch_size = 4  # ➡️ 24GB VRAM을 활용하여 속도 향상. 8까지 시도 가능.
+learning_rate = 1 # ➡️ Prodigy 옵티마이저를 사용할 경우 1로 설정.
+lr_scheduler = "cosine_with_restarts" # ➡️ Prodigy와 함께 자주 사용되는 스케줄러.
 lr_warmup_steps = 100
-max_train_epochs = 15
-optimizer_type = "AdamW8bit"
+max_train_epochs = 15 # Batch Size를 높였으므로, 총 스텝 수 계산 후 필요시 조정.
+optimizer_type = "Prodigy" # ➡️ SDXL LoRA에서 최고의 성능을 보이는 옵티마이저.
 mixed_precision = "bf16"
-gradient_checkpointing = true
+gradient_checkpointing = false # ➡️ VRAM이 충분하므로 비활성화하여 속도 향상.
 clip_skip = 2
 network_module = "networks.lora"
-network_dim = 32
-network_alpha = 16
+network_dim = 128 # ➡️ VRAM을 활용하여 모델 표현력 강화. 256도 시도 가능.
+network_alpha = 64 # ➡️ network_dim의 절반으로 설정하여 학습 안정화.
 save_precision = "bf16"
 save_every_n_epochs = 1
 network_train_unet_only = true
-cache_text_encoder_outputs = true   # 캐시 유지
+cache_text_encoder_outputs = true
 
 [folders]
 train_data_dir = "../dataset/training"
@@ -40,6 +40,6 @@ bucket_reso_steps = 64
 bucket_no_upscale = true
 xformers = true
 cache_latents = true
-cache_latents_to_disk = true
+cache_latents_to_disk = false # ➡️ SSD/NVMe 속도에 따라 선택. 24GB+ 환경에서는 캐시를 메모리에 두는 것이 빠를 수 있음.
 min_bucket_reso = 512
 max_bucket_reso = 2048

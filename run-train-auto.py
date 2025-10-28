@@ -9,7 +9,7 @@ SDXL LoRA 일괄 학습 스크립트
 import os
 import sys
 import toml
-import json
+import math # 상단에 import math 추가 필요
 import subprocess
 import argparse
 from pathlib import Path
@@ -155,46 +155,48 @@ class LoRATrainer:
 
     def calculate_training_params(self, image_count):
         """
-        이미지 수 기반 자동 파라미터 계산 (24GB+ 기준)
-
-        Args:
-            image_count (int): 학습 이미지 수
-            vram_size (int): GPU VRAM 크기 (GB)
-            batch_size (int): 배치 사이즈
-            target_total_steps (int): 목표 총 학습 스텝 수
-        Returns:
-            dict: repeats, epochs, steps_per_epoch, total_steps
+        이미지 수, 배치 사이즈, 목표 스텝을 기반으로
+        최적의 repeats와 epochs를 계산합니다. (24GB+ VRAM 환경)
         """
+
+        # --- 1. 설정값 가져오기 (config에서 8, 3000, 10을 가져온다고 가정) ---
         batch_size = self.config.batch_size
         target_steps = self.config.target_steps
+        force_repeats = getattr(self.config, 'force_repeats', None)
+        target_epochs = getattr(self.config, 'target_epochs', 10)  # 10으로 고정하여 체크포인트 수 제어
 
-        # 강제 반복 횟수가 지정되면 사용
-        if self.config.force_repeats is not None:
-            repeat = self.config.force_repeats
+        if image_count <= 0 or batch_size <= 0:
+            # 안전장치
+            return {"repeats": 1, "epochs": 1, "steps_per_epoch": 1, "total_steps": 1}
+
+        # --- 2. '자동 계산'의 경우 (추천 로직: Epochs를 고정하고 Repeats 역산) ---
+        if force_repeats is None:
+
+            epochs = target_epochs  # Epochs 고정 (예: 10)
+
+            # 1. 목표 스텝 달성에 필요한 'repeats'를 역산하여 계산
+            # repeats = (target_steps * batch_size) / (image_count * epochs)
+
+            denominator = image_count * epochs
+            repeats_float = (target_steps * batch_size) / denominator
+            # repeats는 정수이며 최소 1 (반올림 사용)
+            repeats = max(1, round(repeats_float))
+
+            # 2. 결정된 repeats로 steps_per_epoch 다시 계산 (올림 사용으로 0 스텝 방지)
+            steps_per_epoch = math.ceil((image_count * repeats) / batch_size)
+
         else:
-            # 1️⃣ repeat 기본값 설정
-            if image_count < 20:
-                repeat = 40
-            elif image_count < 50:
-                repeat = 20
-            elif image_count < 100:
-                repeat = 15
-            else:
-                repeat = 10  # 100장 이상이면 10 정도
+            # --- 3. '강제 repeats'가 설정된 경우 (기존 로직) ---
+            repeats = force_repeats
+            steps_per_epoch = math.ceil((image_count * repeats) / batch_size)
+            epochs = max(1, round(target_steps / steps_per_epoch))
+            epochs = max(epochs, 5)  # 최소 5 epoch 보장
 
-        # 2️⃣ steps_per_epoch 계산
-        steps_per_epoch = (image_count * repeat) // batch_size
-
-        # 3️⃣ epoch 계산
-        epochs = max(1, round(target_steps / steps_per_epoch))
-        # 최소 5, 최대 30 epoch 제한
-        epochs = min(max(epochs, 5), 30)
-
-        # 4️⃣ 실제 total_steps
+        # --- 4. 최종 결과 계산 ---
         total_steps = steps_per_epoch * epochs
 
         return {
-            "repeats": repeat,
+            "repeats": repeats,
             "epochs": epochs,
             "steps_per_epoch": steps_per_epoch,
             "total_steps": total_steps
