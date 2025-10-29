@@ -26,6 +26,7 @@ network_module = "networks.lora"
 network_dim = 128 # ➡️ VRAM을 활용하여 모델 표현력 강화. 256도 시도 가능.
 network_alpha = 64 # ➡️ network_dim의 절반으로 설정하여 학습 안정화.
 save_precision = "bf16"
+save_state = true
 save_every_n_epochs = 1
 network_train_unet_only = true
 cache_text_encoder_outputs = true

@@ -182,7 +182,7 @@ class LoRATrainer:
         batch_size = self.config.batch_size
         target_steps = self.config.target_steps
         force_repeats = getattr(self.config, 'force_repeats', None)
-        target_epochs = getattr(self.config, 'target_epochs', 10)  # 10으로 고정하여 체크포인트 수 제어
+        target_epochs = getattr(self.config, 'target_epochs', 15)  # 15로 고정하여 체크포인트 수 제어
 
         if image_count <= 0 or batch_size <= 0:
             # 안전장치
@@ -275,7 +275,8 @@ class LoRATrainer:
 
         # Resume 처리
         if hasattr(self.config, 'resume') and self.config.resume:
-            cmd.append(f"--network_weights={self.config.resume}")
+            # cmd.append(f"--network_weights={self.config.resume}")
+            cmd.append(f"--resume={self.config.resume}")
             print(f"   🔄 Loading weights: {Path(self.config.resume).name}")
 
 
@@ -321,14 +322,14 @@ class LoRATrainer:
         print(f"{'=' * 70}")
         print(f"📁 학습 폴더: {self.config.train_dir}")
         print(f"💾 출력 폴더: {self.config.output_dir}")
-        print(f"🖥️  GPU: {self.config.gpu_id} ({self.config.vram_size}GB)")
+        print(f"🖥️ GPU: {self.config.gpu_id} ({self.config.vram_size}GB)")
         print(f"⚡ Precision: {self.config.precision}")
         print(f"📋 Config: {self.config.config_file}")
         print(f"\n발견된 학습 폴더: {len(folders)}개")
         print(f"{'-' * 70}")
         for f in folders:
             img_count = self.count_images(f['path'])
-            print(f"  {f['order']:02d}. {f['name']:20s} ({img_count} images)")
+            print(f"  {f['folder']} ({img_count} images)")
         print(f"{'=' * 70}\n")
 
         # 사용자 확인
