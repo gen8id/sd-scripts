@@ -271,6 +271,8 @@ class LoRATrainer:
             f'--output_name={output_name}',  # ID 토큰만 사용
             f'--max_train_epochs={epochs}',
             f'--dataset_repeats={repeats}'
+            f'-logging_dir ../logs/tensorboard'
+            f'-report_to tensorboard'
         ]
 
         # Resume 처리

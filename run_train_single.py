@@ -197,6 +197,10 @@ def main():
         "--resume",
         help="이어서 학습할 LoRA 파일 경로 (예: ../output_models/alice-epoch-010.safetensors)"
     )
+    parser.add_argument("--logging_dir", type=str, default="../logs/tensorboard",
+                        help="TensorBoard 로그 저장 폴더")
+    parser.add_argument("--report_to", type=str, default="tensorboard",
+                        help="로그를 기록할 플랫폼 (tensorboard)")
 
     args = parser.parse_args()
     print("🧩 전달된 인자:", sys.argv)
@@ -256,13 +260,6 @@ def main():
         output_name = args.output
     else:
         folder_name = folder_path.name
-        # parts = folder_name.split('_', 1)
-        # if len(parts) == 2 and parts[0].isdigit():
-        #     base_name = parts[1]
-        # else:
-        #     base_name = folder_name
-        # 클래스 접미사 제거
-        # base_name = re.sub(r'_[a-zA-Z0-9]+$', '', base_name)
         output_name = folder_name
 
     # ==========================================
@@ -373,6 +370,7 @@ def main():
             training_config.network_alpha = args.alpha
         if args.resolution:
             training_config.resolution = args.resolution
+
 
     except Exception as e:
         print(f"❌ TrainingConfig 생성 실패: {e}")
