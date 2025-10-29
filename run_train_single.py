@@ -9,10 +9,12 @@ SDXL LoRA 단일 학습 스크립트 (고급 사용자용)
 import os
 import sys
 import logging
+import re
 import toml
 import subprocess
 import argparse
 from pathlib import Path
+from run_train_auto import TrainingConfig, LoRATrainer
 
 logging.basicConfig(
     level=logging.INFO,
@@ -96,22 +98,22 @@ def main():
         epilog="""
 사용 예시:
   # 기본 (자동 계산)
-  python run-train-single.py --folder ../dataset/training/01_alice
+  python run_train_single.py --folder ../dataset/training/01_alice
 
   # 수동 파라미터 지정
-  python run-train-single.py --folder ../dataset/training/01_alice --epochs 20 --repeats 30
+  python run_train_single.py --folder ../dataset/training/01_alice --epochs 20 --repeats 30
 
   # Learning rate 조정
-  python run-train-single.py --folder ../dataset/training/01_alice --lr 0.0002
+  python run_train_single.py --folder ../dataset/training/01_alice --lr 0.0002
 
   # Network dim 변경
-  python run-train-single.py --folder ../dataset/training/01_alice --dim 64 --alpha 32
+  python run_train_single.py --folder ../dataset/training/01_alice --dim 64 --alpha 32
 
   # 이어서 학습 (Resume)
-  python run-train-single.py --folder ../dataset/training/01_alice --resume ../output_models/alice-epoch-010.safetensors --epochs 30
+  python run_train_single.py --folder ../dataset/training/01_alice --resume ../output_models/alice-epoch-010.safetensors --epochs 30
 
   # 전체 커스텀
-  python run-train-single.py \
+  python run_train_single.py \
     --folder ../dataset/training/01_alice \
     --output alice_v2 \
     --config config-24g.toml \
@@ -262,13 +264,17 @@ def main():
     if args.output:
         output_name = args.output
     else:
-        # 폴더명에서 추출 (01_alice → alice)
+        # 폴더명에서 추출 (01_alice_woman → alice)
         folder_name = folder_path.name
         parts = folder_name.split('_', 1)
         if len(parts) == 2 and parts[0].isdigit():
-            output_name = parts[1]
+            base_name = parts[1]
         else:
-            output_name = folder_name
+            base_name = folder_name
+
+        # 클래스 접미사 제거 (_woman, _man 등)
+        base_name = re.sub(r'_[a-zA-Z0-9]+$', '', base_name)
+        output_name = base_name
 
     # 📌 Resume 시 출력 이름 재결정 로직 보완
     # 요청 명령어에서는 output_name이 따로 지정되지 않아, 폴더명에서 추출된 이름이 사용됩니다.
@@ -398,3 +404,34 @@ def main():
         cmd.append(f"--network_alpha={args.alpha}")
     if args.resolution:
         cmd.append(f"--resolution={args.resolution}")
+
+    try:
+        training_config = TrainingConfig(
+            config_file=args.config,
+            gpu_id=args.gpu,            # argparse --gpu
+            force_repeats=args.repeats, # argparse --repeats
+            folder_path=folder_path,    # 학습할 폴더
+            output_name=output_name,    # 저장할 LoRA 이름
+            epochs=epochs,
+            batch_size=batch_size,
+            lr=args.lr,
+            dim=args.dim,
+            alpha=args.alpha,
+            resolution=args.resolution,
+            resume=args.resume
+        )
+        # 학습 실행
+        trainer = LoRATrainer(training_config)
+        trainer.run_batch_training()
+
+    except KeyboardInterrupt:
+        print("\n\n⚠️ 프로그램 중단됨")
+        sys.exit(1)
+    except Exception as e:
+        print(f"\n❌ 오류 발생: {e}")
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()

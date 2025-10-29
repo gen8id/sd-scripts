@@ -16,4 +16,4 @@ echo "Starting training... Logging to $LOG_FILE"
 
 cd /app/sdxl_train_captioner/sd-scripts
 
-python3 ./run-train-auto.py "$@" 2>&1 | tee "$LOG_FILE"
+python3 ./run_train_auto.py "$@" 2>&1 | tee "$LOG_FILE"
