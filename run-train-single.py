@@ -8,12 +8,20 @@ SDXL LoRA 단일 학습 스크립트 (고급 사용자용)
 
 import os
 import sys
-import json
+import logging
 import toml
 import subprocess
 import argparse
 from pathlib import Path
 
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s [%(levelname)s] %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout),  # 터미널로
+        logging.FileHandler("/app/sdxl_train_captioner/logs/train_single_debug.log")  # 파일로
+    ]
+)
 
 def get_vram_size(gpu_id=0):
     """NVIDIA GPU VRAM 크기 감지 (GB)"""
@@ -88,34 +96,31 @@ def main():
         epilog="""
 사용 예시:
   # 기본 (자동 계산)
-  python train_single.py --folder ../dataset/training/01_alice
+  python run-train-single.py --folder ../dataset/training/01_alice
 
   # 수동 파라미터 지정
-  python train_single.py --folder ../dataset/training/01_alice --epochs 20 --repeats 30
+  python run-train-single.py --folder ../dataset/training/01_alice --epochs 20 --repeats 30
 
   # Learning rate 조정
-  python train_single.py --folder ../dataset/training/01_alice --lr 0.0002
+  python run-train-single.py --folder ../dataset/training/01_alice --lr 0.0002
 
   # Network dim 변경
-  python train_single.py --folder ../dataset/training/01_alice --dim 64 --alpha 32
+  python run-train-single.py --folder ../dataset/training/01_alice --dim 64 --alpha 32
 
   # 이어서 학습 (Resume)
-  python train_single.py --folder ../dataset/training/01_alice --resume ../output_models/alice-epoch-010.safetensors
-
-  # Resume + 파라미터 변경
-  python train_single.py --folder ../dataset/training/01_alice --resume ../output_models/alice-epoch-010.safetensors --epochs 30 --lr 0.00008
+  python run-train-single.py --folder ../dataset/training/01_alice --resume ../output_models/alice-epoch-010.safetensors --epochs 30
 
   # 전체 커스텀
-  python train_single.py \\
-    --folder ../dataset/training/01_alice \\
-    --output alice_v2 \\
-    --config config-24g.toml \\
-    --gpu 0 \\
-    --epochs 25 \\
-    --repeats 40 \\
-    --lr 0.00015 \\
-    --dim 64 \\
-    --alpha 32 \\
+  python run-train-single.py \
+    --folder ../dataset/training/01_alice \
+    --output alice_v2 \
+    --config config-24g.toml \
+    --gpu 0 \
+    --epochs 25 \
+    --repeats 40 \
+    --lr 0.00015 \
+    --dim 64 \
+    --alpha 32 \
     --batch-size 2
         """
     )
@@ -265,6 +270,11 @@ def main():
         else:
             output_name = folder_name
 
+    # 📌 Resume 시 출력 이름 재결정 로직 보완
+    # 요청 명령어에서는 output_name이 따로 지정되지 않아, 폴더명에서 추출된 이름이 사용됩니다.
+    # 만약 --resume에 있는 파일명 기반으로 output_name을 지정하고 싶다면 아래 로직을 사용해야 하지만,
+    # 현재는 폴더명 기반으로 진행합니다.
+
     # 파라미터 결정
     if args.no_auto:
         # 수동 모드
@@ -287,52 +297,58 @@ def main():
     print(f"\n{'=' * 70}")
     print(f"🎯 SDXL LoRA Training - Single Mode")
     print(f"{'=' * 70}")
-    print(f"📁 Folder:         {folder_path}")
-    print(f"💾 Output:         {output_name}.safetensors")
-    print(f"📋 Config:         {config_file}")
+    print(f"📁 Folder:           {folder_path}")
+    print(f"💾 Output:           {output_name}.safetensors")
+    print(f"📋 Config:           {config_file}")
     print(f"🖥️  GPU:            {args.gpu} ({vram_size}GB VRAM)")
-    print(f"⚡ Precision:      {precision}")
+    print(f"⚡ Precision:        {precision}")
 
     # Resume 정보
     if args.resume:
-        if not os.path.exists(args.resume):
-            print(f"❌ Resume 파일을 찾을 수 없습니다: {args.resume}")
+        # resume 파일이 존재하지 않을 경우를 대비하여 절대 경로로 변환하여 확인
+        resume_path = Path(args.resume)
+        if not resume_path.is_absolute():
+            # 상대 경로인 경우 현재 스크립트 실행 위치 기준으로 처리
+            resume_path = Path(os.getcwd()) / resume_path
+
+        if not resume_path.exists():
+            print(f"❌ Resume 파일을 찾을 수 없습니다: {resume_path}")
             sys.exit(1)
-        print(f"🔄 Resume from:    {args.resume}")
+        print(f"🔄 Resume from:      {resume_path}")
 
     print(f"{'-' * 70}")
     print(f"📊 Training Parameters")
     print(f"{'-' * 70}")
-    print(f"  Images:          {image_count}")
-    print(f"  Repeats:         {repeats}" + (" (manual)" if args.repeats else " (auto)"))
-    print(f"  Epochs:          {epochs}" + (" (manual)" if args.epochs else " (auto)"))
-    print(f"  Batch size:      {batch_size}" + (" (override)" if args.batch_size else ""))
-    print(f"  Images/epoch:    {image_count * repeats}")
-    print(f"  Steps/epoch:     {steps_per_epoch}")
-    print(f"  Total steps:     {total_steps}")
+    print(f"  Images:            {image_count}")
+    print(f"  Repeats:           {repeats}" + (" (manual)" if args.repeats else " (auto)"))
+    print(f"  Epochs:            {epochs}" + (" (manual)" if args.epochs else " (auto)"))
+    print(f"  Batch size:        {batch_size}" + (" (override)" if args.batch_size else ""))
+    print(f"  Images/epoch:      {image_count * repeats}")
+    print(f"  Steps/epoch:       {steps_per_epoch}")
+    print(f"  Total steps:       {total_steps}")
 
-    # 오버라이드된 파라미터 표시
+    # 오버라이드된 파라미터 표시 (이전과 동일)
     overrides = []
     if args.lr:
-        print(f"  Learning rate:   {args.lr} (override)")
+        print(f"  Learning rate:     {args.lr} (override)")
         overrides.append(('lr', args.lr))
     if args.dim:
-        print(f"  Network dim:     {args.dim} (override)")
+        print(f"  Network dim:       {args.dim} (override)")
         overrides.append(('dim', args.dim))
     if args.alpha:
-        print(f"  Network alpha:   {args.alpha} (override)")
+        print(f"  Network alpha:     {args.alpha} (override)")
         overrides.append(('alpha', args.alpha))
     if args.resolution:
-        print(f"  Resolution:      {args.resolution} (override)")
+        print(f"  Resolution:        {args.resolution} (override)")
         overrides.append(('resolution', args.resolution))
     if args.optimizer:
-        print(f"  Optimizer:       {args.optimizer} (override)")
+        print(f"  Optimizer:         {args.optimizer} (override)")
         overrides.append(('optimizer', args.optimizer))
     if args.scheduler:
-        print(f"  LR Scheduler:    {args.scheduler} (override)")
+        print(f"  LR Scheduler:      {args.scheduler} (override)")
         overrides.append(('scheduler', args.scheduler))
     if args.save_every:
-        print(f"  Save every:      {args.save_every} epochs (override)")
+        print(f"  Save every:        {args.save_every} epochs (override)")
         overrides.append(('save_every', args.save_every))
 
     print(f"{'=' * 70}\n")
@@ -360,17 +376,15 @@ def main():
         f"--dataset_repeats={repeats}"
     ]
 
-    # resume(이어받기) 처리 — 안전하게
-    # 대부분의 경우 users want to load model weights -> use --network_weights
-    # Only use --resume if you have an accelerator checkpoint (full state)
-    # resume 값이 실제로 존재하는 파일일 때만 전달
+    # resume(이어받기) 처리 (중복된 로직 제거하고, 필요한 부분만 남김)
     if args.resume:
-        if os.path.exists(args.resume):
-            # 대부분의 경우 model weights 로드가 목적이라면 network_weights로 전달
-            cmd.append(f"--network_weights={str(args.resume)}")
-            print(f"\n🔄 Resuming weights from: {args.resume}\n")
+        resume_path = str(Path(args.resume).resolve())
+        if os.path.exists(resume_path):
+            # LoRA 가중치 로드: Kohya_SS에서 학습 재개 시 일반적으로 사용
+            cmd.append(f"--network_weights={resume_path}")
+            print(f"\n🔄 LoRA 가중치 로드 (--network_weights): {resume_path}\n")
         else:
-            print(f"❌ Resume 파일이 존재하지 않습니다: {args.resume}")
+            print(f"❌ Resume 파일이 존재하지 않습니다: {resume_path}")
             sys.exit(1)
 
     # 오버라이드 추가
@@ -384,36 +398,3 @@ def main():
         cmd.append(f"--network_alpha={args.alpha}")
     if args.resolution:
         cmd.append(f"--resolution={args.resolution}")
-    if args.optimizer:
-        cmd.append(f"--optimizer_type={args.optimizer}")
-    if args.scheduler:
-        cmd.append(f"--lr_scheduler={args.scheduler}")
-    if args.save_every:
-        cmd.append(f"--save_every_n_epochs={args.save_every}")
-
-    # Resume 추가
-    if args.resume:
-        cmd.append(f"--network_weights={args.resume}")
-        print(f"\n🔄 Resuming from: {args.resume}\n")
-
-    # 환경 변수 설정
-    env = os.environ.copy()
-    env['CUDA_VISIBLE_DEVICES'] = str(args.gpu)
-
-    # 실행
-    try:
-        print(f"\n🚀 Starting training...\n")
-        subprocess.run(cmd, env=env, check=True)
-        print(f"\n✅ 학습 완료: {output_name}.safetensors")
-        print(f"{'=' * 70}\n")
-
-    except subprocess.CalledProcessError as e:
-        print(f"\n❌ 학습 실패: {e}")
-        sys.exit(1)
-    except KeyboardInterrupt:
-        print(f"\n⚠️ 학습 중단됨")
-        sys.exit(1)
-
-
-if __name__ == "__main__":
-    main()

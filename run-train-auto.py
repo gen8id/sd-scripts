@@ -88,9 +88,8 @@ class LoRATrainer:
         self.config = training_config
         self.image_extensions = {'.jpg', '.jpeg', '.png', '.webp', '.bmp'}
 
-
     def find_training_folders(self):
-        """학습 폴더 찾기 (순서_이름 패턴) - 다중 카테고리 지원"""
+        """학습 폴더 찾기 (순서_이름_클래스 패턴) - 다중 카테고리 지원"""
         train_dir = self.config.train_dir
 
         if not os.path.isdir(train_dir):
@@ -115,25 +114,42 @@ class LoRATrainer:
                 if not os.path.isdir(item_path):
                     continue
 
-                # 패턴: 01_alice, 5_alic3 woman 등
-                # 언더스코어 또는 공백으로 분리 (DreamBooth 형식 지원)
-                parts = item.split('_', 1)
-                if len(parts) == 2 and parts[0].isdigit():
+                # 패턴: 01_alice_woman, 02_bob, 5_style
+                parts = item.split('_')  # 언더스코어(_)로 모두 분리
+
+                # 최소 2개 요소(순서, 이름)가 있어야 하며, 첫 번째가 숫자여야 함
+                if len(parts) >= 2 and parts[0].isdigit():
                     order = int(parts[0])
-                    name = parts[1]
+                    # 이름 추출: 두 번째 요소부터 끝까지를 다시 조인
+                    # 예: 'alice_woman'
+                    name_parts = parts[1:]
+
+                    # 📌 세 번째 요소 (클래스) 처리
+                    class_word = None
+                    if len(name_parts) >= 2:
+                        # 이름과 클래스를 분리
+                        # 이름: parts[1] (예: alice)
+                        # 클래스: parts[2] (예: woman)
+                        name_token = name_parts[0]
+                        class_word = name_parts[1]
+                    else:
+                        # 세 번째 요소가 없으면, 전체를 이름 토큰으로 사용 (예: alice)
+                        name_token = name_parts[0]
+
                     folders.append({
                         'order': order,
-                        'name': name,
+                        'name': name_token,  # 순수 ID (예: alice)
+                        'class': class_word,  # 클래스 (예: woman) - 없으면 None
                         'path': item_path,
                         'folder': item,
-                        'category': category  # 카테고리 정보 추가
+                        'category': category
                     })
 
         if not folders:
             print(f"❌ 학습 폴더를 찾을 수 없습니다!")
             print(f"   경로: {train_dir}")
             print(f"   찾는 위치: {train_dir}/mainchar/, {train_dir}/background/")
-            print(f"   패턴: 01_name, 02_name, 5_name class, ...")
+            print(f"   패턴: N_ID_CLASS 또는 N_ID")
             return []
 
         # 순서대로 정렬
@@ -141,7 +157,8 @@ class LoRATrainer:
 
         print(f"✅ 발견된 학습 폴더: {len(folders)}개")
         for f in folders:
-            print(f"   [{f['category']}] {f['order']:02d}_{f['name']}")
+            class_display = f['class'] if f['class'] else '(None)'
+            print(f"   [{f['category']}] {f['order']:02d}_{f['name']}_({class_display})")
 
         return folders
 
@@ -204,10 +221,11 @@ class LoRATrainer:
 
     def train_single_lora(self, folder_info):
         """단일 LoRA 학습"""
-        name = folder_info['name']
+        name = folder_info['name']  # ID 토큰 (예: alice)
+        class_word = folder_info['class']  # Class 토큰 (예: woman)
         folder = folder_info['folder']
         folder_path = folder_info['path']
-        category = folder_info['category']  # 추가!
+        category = folder_info['category']
 
         # 이미지 개수 계산
         num_images = self.count_images(folder_path)
@@ -227,26 +245,36 @@ class LoRATrainer:
         print(f"{'-' * 70}")
         print(f"  Category:        {category}")
         print(f"  Folder:          {folder}")
+        if class_word:
+            print(f"  Class Token:     {class_word} (정규화 사용)")
+        else:
+            print(f"  Class Token:     (없음) (정규화 미사용)")
         print(f"  Images:          {num_images}")
         print(f"  Repeats:         {repeats} (auto)")
         print(f"  Epochs:          {epochs}")
-        print(f"  Total steps:     {num_images * repeats * epochs}")
+        print(f"  Total steps:     {params['total_steps']}")  # 수정: params['total_steps'] 사용
         print(f"{'-' * 70}")
 
-        # train_data_dir는 카테고리 폴더 (01_alic3 woman의 부모)
+        # train_data_dir는 카테고리 폴더 (01_alic3_woman의 부모)
         train_data_dir = os.path.join(self.config.train_dir, category)
 
         cmd = [
             'accelerate', 'launch',
             '--num_cpu_threads_per_process', '1',
-            '--mixed_precision', self.config.precision,  # LoRATrainer -> TrainingConfig 참조
+            '--mixed_precision', self.config.precision,
             'sdxl_train_network.py',
-            f'--config_file={self.config.config_file}',  # 동일하게 참조
-            f'--train_data_dir={train_data_dir}',
-            f'--output_name={name.replace(" ", "_")}',
+            f'--config_file={self.config.config_file}',
+            f'--train_data_dir={train_data_dir}',  # 카테고리 폴더
+            f'--output_name={name.replace(" ", "_")}',  # ID 토큰만 사용
             f'--max_train_epochs={epochs}',
             f'--dataset_repeats={repeats}'
         ]
+
+        # 📌 세 번째 요소(Class)가 있을 경우, --class_tokens 인자 추가
+        if class_word:
+            # Kohya_SS의 Dreambooth/LoRA는 Class 토큰을 --class_tokens에 전달하여
+            # 정규화 이미지 폴더(예: reg_woman)를 찾고 학습을 수행합니다.
+            cmd.append(f'--class_tokens={class_word}')
 
         # 실행
         try:

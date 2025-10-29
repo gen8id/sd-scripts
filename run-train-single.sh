@@ -11,9 +11,11 @@ TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 # 로그 파일 경로
 LOG_FILE="$LOG_DIR/train_$TIMESTAMP.log"
 
+trap 'echo "❌ Error occurred. Check log: '"$LOG_FILE"'"' ERR
+
 # 학습 스크립트 실행
 echo "Starting training... Logging to $LOG_FILE"
 
 cd /app/sdxl_train_captioner/sd-scripts
 
-python3 ./run-train-single.py "$@" 2>&1 | tee "$LOG_FILE"
+python3 -u ./run-train-single.py "$@" 2>&1 | tee "$LOG_FILE"
