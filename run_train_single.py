@@ -92,6 +92,7 @@ def calculate_auto_params(image_count, vram_size, batch_size=1):
 
 
 def main():
+
     parser = argparse.ArgumentParser(
         description="SDXL LoRA 단일 학습 (고급 설정)",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -99,9 +100,107 @@ def main():
     )
 
     # -- 인자 정의 (생략: 기존과 동일) --
-    # parser.add_argument(...) 블록들
+
+    # 필수 인자
+    parser.add_argument(
+        "--folder",
+        required=True,
+        help="학습할 폴더 경로 (예: ../dataset/training/01_alice)"
+    )
+
+    # 기본 설정
+    parser.add_argument(
+        "--config",
+        default="config-24g.toml",
+        help="Config 파일 (기본: config-24g.toml)"
+    )
+
+    parser.add_argument(
+        "--output",
+        help="출력 LoRA 이름 (기본: 폴더명에서 추출)"
+    )
+
+    parser.add_argument(
+        "--gpu",
+        type=int,
+        default=0,
+        help="GPU ID (기본: 0)"
+    )
+
+    # 학습 파라미터
+    parser.add_argument(
+        "--epochs",
+        type=int,
+        help="총 Epoch 수 (기본: 자동 계산)"
+    )
+
+    parser.add_argument(
+        "--repeats",
+        type=int,
+        help="이미지 반복 횟수 (기본: 자동 계산)"
+    )
+
+    parser.add_argument(
+        "--batch-size",
+        type=int,
+        help="배치 사이즈 (기본: config 값)"
+    )
+
+    parser.add_argument(
+        "--lr",
+        type=float,
+        help="Learning rate (기본: config 값, 보통 1e-4)"
+    )
+
+    parser.add_argument(
+        "--dim",
+        type=int,
+        help="Network dimension (기본: config 값, 보통 32)"
+    )
+
+    parser.add_argument(
+        "--alpha",
+        type=int,
+        help="Network alpha (기본: config 값, 보통 16)"
+    )
+
+    parser.add_argument(
+        "--resolution",
+        help="해상도 (예: 1024,1024 또는 768,768)"
+    )
+
+    parser.add_argument(
+        "--save-every",
+        type=int,
+        help="N epoch마다 저장 (기본: config 값)"
+    )
+
+    # 고급 옵션
+    parser.add_argument(
+        "--optimizer",
+        help="Optimizer (예: AdamW8bit, Lion, Prodigy)"
+    )
+
+    parser.add_argument(
+        "--scheduler",
+        help="LR Scheduler (예: cosine, constant, polynomial)"
+    )
+
+    parser.add_argument(
+        "--no-auto",
+        action="store_true",
+        help="자동 계산 비활성화 (epochs/repeats 수동 지정 필수)"
+    )
+
+    # Resume 옵션
+    parser.add_argument(
+        "--resume",
+        help="이어서 학습할 LoRA 파일 경로 (예: ../output_models/alice-epoch-010.safetensors)"
+    )
 
     args = parser.parse_args()
+    print("🧩 전달된 인자:", sys.argv)
+    print("🧩 argparse 결과:", args)
 
     # ==========================================
     # 1. 기본 검증
@@ -157,14 +256,14 @@ def main():
         output_name = args.output
     else:
         folder_name = folder_path.name
-        parts = folder_name.split('_', 1)
-        if len(parts) == 2 and parts[0].isdigit():
-            base_name = parts[1]
-        else:
-            base_name = folder_name
+        # parts = folder_name.split('_', 1)
+        # if len(parts) == 2 and parts[0].isdigit():
+        #     base_name = parts[1]
+        # else:
+        #     base_name = folder_name
         # 클래스 접미사 제거
-        base_name = re.sub(r'_[a-zA-Z0-9]+$', '', base_name)
-        output_name = base_name
+        # base_name = re.sub(r'_[a-zA-Z0-9]+$', '', base_name)
+        output_name = folder_name
 
     # ==========================================
     # 5. 학습 파라미터 결정
@@ -189,11 +288,11 @@ def main():
     print(f"\n{'=' * 70}")
     print(f"🎯 SDXL LoRA Training - Single Mode")
     print(f"{'=' * 70}")
-    print(f"📁 Folder:           {folder_path}")
-    print(f"💾 Output:           {output_name}.safetensors")
-    print(f"📋 Config:           {config_file}")
-    print(f"🖥️  GPU:              {args.gpu} ({vram_size}GB VRAM)")
-    print(f"⚡ Precision:        {precision}")
+    print(f"📁 Folder:         {folder_path}")
+    print(f"💾 Output:         {output_name}.safetensors")
+    print(f"📋 Config:         {config_file}")
+    print(f"🖥️  GPU:           {args.gpu} ({vram_size}GB VRAM)")
+    print(f"⚡ Precision:       {precision}")
 
     if resume_path:
         print(f"🔄 Resume from:      {resume_path}")
@@ -209,6 +308,32 @@ def main():
     print(f"  Images/epoch:      {image_count * repeats}")
     print(f"  Steps/epoch:       {steps_per_epoch}")
     print(f"  Total steps:       {total_steps}")
+    print(f"{'=' * 70}\n")
+
+    # 오버라이드된 파라미터 표시 (이전과 동일)
+    overrides = []
+    if args.lr:
+        print(f"  Learning rate:     {args.lr} (override)")
+        overrides.append(('lr', args.lr))
+    if args.dim:
+        print(f"  Network dim:       {args.dim} (override)")
+        overrides.append(('dim', args.dim))
+    if args.alpha:
+        print(f"  Network alpha:     {args.alpha} (override)")
+        overrides.append(('alpha', args.alpha))
+    if args.resolution:
+        print(f"  Resolution:        {args.resolution} (override)")
+        overrides.append(('resolution', args.resolution))
+    if args.optimizer:
+        print(f"  Optimizer:         {args.optimizer} (override)")
+        overrides.append(('optimizer', args.optimizer))
+    if args.scheduler:
+        print(f"  LR Scheduler:      {args.scheduler} (override)")
+        overrides.append(('scheduler', args.scheduler))
+    if args.save_every:
+        print(f"  Save every:        {args.save_every} epochs (override)")
+        overrides.append(('save_every', args.save_every))
+
     print(f"{'=' * 70}\n")
 
     # ==========================================
@@ -260,24 +385,26 @@ def main():
 
     # folder_info 생성
     folder_name = folder_path.name
+    folder_split_len = len(folder_name.split('_'))
     parts = folder_name.split('_', 1)
     if len(parts) == 2 and parts[0].isdigit():
         order = int(parts[0])
-        name = parts[1]
     else:
         order = 0
-        name = folder_name
 
     folder_info = {
         'order': order,
-        'name': name,
+        'name': folder_name,
         'path': str(folder_path),
         'folder': folder_name,
         'category': folder_path.parent.name,
         'output_name': output_name,  # 출력 이름 전달
         'epochs': epochs,
-        'repeats': repeats
+        'repeats': repeats,
     }
+
+    if folder_split_len == 3:
+        folder_info['class'] = folder_name.split('_')[2]
 
     # 학습 실행
     print("\n🚀 학습 시작...\n")

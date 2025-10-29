@@ -86,6 +86,8 @@ class LoRATrainer:
 
     def __init__(self, training_config):
         self.config = training_config
+        self.output_dir = Path("output")
+        self.output_dir.mkdir(exist_ok=True)
         self.image_extensions = {'.jpg', '.jpeg', '.png', '.webp', '.bmp'}
 
     def find_training_folders(self):
@@ -257,6 +259,7 @@ class LoRATrainer:
 
         # train_data_dir는 카테고리 폴더 (01_alic3_woman의 부모)
         train_data_dir = os.path.join(self.config.train_dir, category)
+        output_name = folder_info.get('output_name', folder)
 
         cmd = [
             'accelerate', 'launch',
@@ -265,16 +268,22 @@ class LoRATrainer:
             'sdxl_train_network.py',
             f'--config_file={self.config.config_file}',
             f'--train_data_dir={train_data_dir}',  # 카테고리 폴더
-            f'--output_name={name.replace(" ", "_")}',  # ID 토큰만 사용
+            f'--output_name={output_name}',  # ID 토큰만 사용
             f'--max_train_epochs={epochs}',
             f'--dataset_repeats={repeats}'
         ]
 
+        # Resume 처리
+        if hasattr(self.config, 'resume') and self.config.resume:
+            cmd.append(f"--network_weights={self.config.resume}")
+            print(f"   🔄 Loading weights: {Path(self.config.resume).name}")
+
+
         # 📌 세 번째 요소(Class)가 있을 경우, --class_tokens 인자 추가
-        if class_word:
-            # Kohya_SS의 Dreambooth/LoRA는 Class 토큰을 --class_tokens에 전달하여
-            # 정규화 이미지 폴더(예: reg_woman)를 찾고 학습을 수행합니다.
-            cmd.append(f'--class_tokens={class_word}')
+        # if class_word:
+        #     # Kohya_SS의 Dreambooth/LoRA는 Class 토큰을 --class_tokens에 전달하여
+        #     # 정규화 이미지 폴더(예: reg_woman)를 찾고 학습을 수행합니다.
+        #     cmd.append(f'--class_tokens={class_word}')
 
         # 실행
         try:
