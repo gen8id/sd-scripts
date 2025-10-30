@@ -30,11 +30,11 @@ class TrainingConfig:
         if self.vram_size >= 20:
             self.config_file = "config-24g.toml"
             self.precision = "bf16"  # 항상 bf16
-            self.target_steps = 1800
+            self.target_steps = 5000
         else:
             self.config_file = "config-16g.toml"
             self.precision = "fp16"
-            self.target_steps = 1500
+            self.target_steps = 5000
 
         print(f"🧠 VRAM 감지 결과: {self.vram_size}GB / Precision={self.precision}")
 
@@ -182,7 +182,7 @@ class LoRATrainer:
         batch_size = self.config.batch_size
         target_steps = self.config.target_steps
         force_repeats = getattr(self.config, 'force_repeats', None)
-        target_epochs = getattr(self.config, 'target_epochs', 15)  # 15로 고정하여 체크포인트 수 제어
+        target_epochs = getattr(self.config.max_train_epochs, 'target_epochs', 15)  # 15로 고정하여 체크포인트 수 제어
 
         if image_count <= 0 or batch_size <= 0:
             # 안전장치

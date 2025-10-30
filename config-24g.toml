@@ -13,7 +13,7 @@ vae = "../models/sdxl.vae.safetensors"
 
 [training]
 resolution = "1024,1024"
-batch_size = 4  # ➡️ 24GB VRAM을 활용하여 속도 향상. 8까지 시도 가능.
+batch_size = 8  # ➡️ 24GB VRAM을 활용하여 속도 향상. 8까지 시도 가능.
 learning_rate = 1 # ➡️ Prodigy 옵티마이저를 사용할 경우 1로 설정.
 lr_scheduler = "cosine_with_restarts" # ➡️ Prodigy와 함께 자주 사용되는 스케줄러.
 lr_warmup_steps = 100
